@@ -34,7 +34,7 @@ class Query extends BaseStatement
      * @param $tables
      * @param SQLStatement|null $statement
      */
-    public function __construct(Connection $connection, $tables, SQLStatement $statement = null)
+    public function __construct(Connection $connection, $tables, ?SQLStatement $statement = null)
     {
         parent::__construct($statement);
         $this->tables = $tables;

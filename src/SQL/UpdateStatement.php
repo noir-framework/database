@@ -24,7 +24,7 @@ class UpdateStatement extends BaseStatement
      * @param string|array $table
      * @param SQLStatement|null $statement
      */
-    public function __construct($table, SQLStatement $statement = null)
+    public function __construct($table, ?SQLStatement $statement = null)
     {
         if (!is_array($table)) {
             $table = [$table];

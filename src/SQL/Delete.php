@@ -30,7 +30,7 @@ class Delete extends DeleteStatement
      * @param string|array $from
      * @param SQLStatement|null $statement
      */
-    public function __construct(Connection $connection, $from, SQLStatement $statement = null)
+    public function __construct(Connection $connection, $from, ?SQLStatement $statement = null)
     {
         parent::__construct($from, $statement);
         $this->connection = $connection;

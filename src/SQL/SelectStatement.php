@@ -29,7 +29,7 @@ class SelectStatement extends BaseStatement
      * @param string|array $tables
      * @param SQLStatement|null $statement
      */
-    public function __construct($tables, SQLStatement $statement = null)
+    public function __construct($tables, ?SQLStatement $statement = null)
     {
         parent::__construct($statement);
 

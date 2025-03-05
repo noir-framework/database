@@ -32,7 +32,7 @@ class Select extends SelectStatement
      * @param array|string $tables
      * @param SQLStatement|null $statement
      */
-    public function __construct(Connection $connection, $tables, SQLStatement $statement = null)
+    public function __construct(Connection $connection, $tables, ?SQLStatement $statement = null)
     {
         parent::__construct($tables, $statement);
         $this->connection = $connection;

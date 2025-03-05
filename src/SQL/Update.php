@@ -30,7 +30,7 @@ class Update extends UpdateStatement
      * @param string|array $table
      * @param SQLStatement|null $statement
      */
-    public function __construct(Connection $connection, $table, SQLStatement $statement = null)
+    public function __construct(Connection $connection, $table, ?SQLStatement $statement = null)
     {
         parent::__construct($table, $statement);
         $this->connection = $connection;

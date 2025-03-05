@@ -31,7 +31,7 @@ class WhereStatement
      * WhereStatement constructor.
      * @param SQLStatement|null $statement
      */
-    public function __construct(SQLStatement $statement = null)
+    public function __construct(?SQLStatement $statement = null)
     {
         if ($statement === null) {
             $statement = new SQLStatement();

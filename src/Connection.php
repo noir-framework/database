@@ -84,11 +84,11 @@ class Connection implements Serializable
      * @param   PDO $pdo (optional) PDO object
      */
     public function __construct(
-        string $dsn = null,
-        string $username = null,
-        string $password = null,
-        string $driver = null,
-        PDO $pdo = null
+        ?string $dsn = null,
+        ?string $username = null,
+        ?string $password = null,
+        ?string $driver = null,
+        ?PDO $pdo = null
     ) {
         $this->dsn = $dsn;
         $this->username = $username;
