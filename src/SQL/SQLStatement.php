@@ -185,7 +185,7 @@ class SQLStatement
      * @param  string|array $table
      * @param  Closure $closure
      */
-    public function addJoinClause(string $type, $table, Closure $closure = null)
+    public function addJoinClause(string $type, $table, ?Closure $closure = null)
     {
         $join = null;
         if ($closure) {
@@ -317,7 +317,7 @@ class SQLStatement
      * @param string $order
      * @param string|null $nulls
      */
-    public function addOrder(array $columns, string $order, string $nulls = null)
+    public function addOrder(array $columns, string $order, ?string $nulls = null)
     {
         foreach ($columns as &$column) {
             $column = $this->closureToExpression($column);
@@ -396,7 +396,7 @@ class SQLStatement
      * @param string $table
      * @param string|null $database
      */
-    public function setInto(string $table, string $database = null)
+    public function setInto(string $table, ?string $database = null)
     {
         $this->intoTable = $table;
         $this->intoDatabase = $database;
