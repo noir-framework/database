@@ -89,8 +89,8 @@ class Query extends BaseStatement
     }
 
     /**
-     * @param   string $column
-     * @param   Closure $value (optional)
+     * @param string $column
+     * @param Closure|null $value (optional)
      *
      * @return  Select
      */
@@ -100,8 +100,8 @@ class Query extends BaseStatement
     }
 
     /**
-     * @param   string|Closure|Expression $column
-     * @param   Closure $value (optional)
+     * @param string|Closure|Expression $column
+     * @param Closure|null $value (optional)
      *
      * @return  Select
      */

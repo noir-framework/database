@@ -41,13 +41,13 @@ class HavingStatement
     }
 
     /**
-     * @param   string|Expression|Closure $column
-     * @param   Closure $value
-     * @param   string $separator
+     * @param string|Expression|Closure $column
+     * @param Closure|null $value
+     * @param string $separator
      *
      * @return  $this
      */
-    protected function addCondition($column, Closure $value = null, $separator = 'AND'): self
+    protected function addCondition($column, ?Closure $value = null, $separator = 'AND'): self
     {
         if (($column instanceof Closure) && $value === null) {
             $this->sql->addHavingGroupCondition($column, $separator);
@@ -70,34 +70,34 @@ class HavingStatement
     }
 
     /**
-     * @param   string|Expression|Closure $column
-     * @param   Closure $value (optional)
+     * @param string|Expression|Closure $column
+     * @param Closure|null $value (optional)
      *
      * @return  $this
      */
-    public function having($column, Closure $value = null): self
+    public function having($column, ?Closure $value = null): self
     {
         return $this->addCondition($column, $value, 'AND');
     }
 
     /**
-     * @param   string|Expression $column
-     * @param   Closure $value (optional)
+     * @param string|Expression $column
+     * @param Closure|null $value (optional)
      *
      * @return  $this
      */
-    public function andHaving($column, Closure $value = null): self
+    public function andHaving($column, ?Closure $value = null): self
     {
         return $this->addCondition($column, $value, 'AND');
     }
 
     /**
-     * @param   string|Expression $column
-     * @param   Closure $value (optional)
+     * @param string|Expression $column
+     * @param Closure|null $value (optional)
      *
      * @return  $this
      */
-    public function orHaving($column, Closure $value = null): self
+    public function orHaving($column, ?Closure $value = null): self
     {
         return $this->addCondition($column, $value, 'OR');
     }

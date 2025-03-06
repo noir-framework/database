@@ -36,12 +36,12 @@ class ColumnExpression
     /**
      * Add a column
      *
-     * @param   string|Closure|Expression $name Column's name
-     * @param   string $alias (optional) Alias
+     * @param string|Closure|Expression $name Column's name
+     * @param string|null $alias (optional) Alias
      *
      * @return  $this
      */
-    public function column($name, string $alias = null): self
+    public function column($name, ?string $alias = null): self
     {
         $this->sql->addColumn($name, $alias);
         return $this;
@@ -73,13 +73,13 @@ class ColumnExpression
     /**
      * Add a `COUNT` expression
      *
-     * @param   string|array|Expression $column Column
-     * @param   string $alias (optional) Column's alias
-     * @param   bool $distinct (optional) Distinct column
+     * @param string $column Column
+     * @param string|null $alias (optional) Column's alias
+     * @param bool $distinct (optional) Distinct column
      *
      * @return  $this
      */
-    public function count($column = '*', string $alias = null, bool $distinct = false): self
+    public function count($column = '*', ?string $alias = null, bool $distinct = false): self
     {
         return $this->column((new Expression())->count($column, $distinct), $alias);
     }
@@ -87,13 +87,13 @@ class ColumnExpression
     /**
      * Add an `AVG` expression
      *
-     * @param   string|Expression $column Column
-     * @param   string $alias (optional) Alias
-     * @param   bool $distinct (optional) Distinct column
+     * @param string|Expression $column Column
+     * @param string|null $alias (optional) Alias
+     * @param bool $distinct (optional) Distinct column
      *
      * @return  $this
      */
-    public function avg($column, string $alias = null, bool $distinct = false): self
+    public function avg($column, ?string $alias = null, bool $distinct = false): self
     {
         return $this->column((new Expression())->avg($column, $distinct), $alias);
     }
@@ -101,13 +101,13 @@ class ColumnExpression
     /**
      * Add a `SUM` expression
      *
-     * @param   string|Expression $column Column
-     * @param   string $alias (optional) Alias
-     * @param   bool $distinct (optional) Distinct column
+     * @param string|Expression $column Column
+     * @param string|null $alias (optional) Alias
+     * @param bool $distinct (optional) Distinct column
      *
      * @return  $this
      */
-    public function sum($column, string $alias = null, bool $distinct = false): self
+    public function sum($column, ?string $alias = null, bool $distinct = false): self
     {
         return $this->column((new Expression())->sum($column, $distinct), $alias);
     }
@@ -115,13 +115,13 @@ class ColumnExpression
     /**
      * Add a `MIN` expression
      *
-     * @param   string|Expression $column Column
-     * @param   string $alias (optional) Alias
-     * @param   bool $distinct (optional) Distinct column
+     * @param string|Expression $column Column
+     * @param string|null $alias (optional) Alias
+     * @param bool $distinct (optional) Distinct column
      *
      * @return  $this
      */
-    public function min($column, string $alias = null, bool $distinct = false): self
+    public function min($column, ?string $alias = null, bool $distinct = false): self
     {
         return $this->column((new Expression())->min($column, $distinct), $alias);
     }
@@ -129,13 +129,13 @@ class ColumnExpression
     /**
      * Add a `MAX` expression
      *
-     * @param   string|Expression $column Column
-     * @param   string $alias (optional) Alias
-     * @param   bool $distinct (optional) Distinct column
+     * @param string|Expression $column Column
+     * @param string|null $alias (optional) Alias
+     * @param bool $distinct (optional) Distinct column
      *
      * @return  $this
      */
-    public function max($column, string $alias = null, bool $distinct = false): self
+    public function max($column, ?string $alias = null, bool $distinct = false): self
     {
         return $this->column((new Expression())->max($column, $distinct), $alias);
     }
@@ -143,12 +143,12 @@ class ColumnExpression
     /**
      * Add a `UCASE` expression
      *
-     * @param   string|Expression $column Column
-     * @param   string $alias (optional) Alias
+     * @param string|Expression $column Column
+     * @param string|null $alias (optional) Alias
      *
      * @return  $this
      */
-    public function ucase($column, string $alias = null): self
+    public function ucase($column, ?string $alias = null): self
     {
         return $this->column((new Expression())->ucase($column), $alias);
     }
@@ -156,12 +156,12 @@ class ColumnExpression
     /**
      * Add a `LCASE` expression
      *
-     * @param   string|Expression $column Column
-     * @param   string $alias (optional) Alias
+     * @param string|Expression $column Column
+     * @param string|null $alias (optional) Alias
      *
      * @return  $this
      */
-    public function lcase($column, string $alias = null): self
+    public function lcase($column, ?string $alias = null): self
     {
         return $this->column((new Expression())->lcase($column), $alias);
     }
@@ -169,14 +169,14 @@ class ColumnExpression
     /**
      * Add a `MID` expression
      *
-     * @param   string|Expression $column Column
-     * @param   int $start (optional) Substring start
-     * @param   string $alias (optional) Alias
-     * @param   int $length (optional) Substring length
+     * @param string|Expression $column Column
+     * @param int $start (optional) Substring start
+     * @param string|null $alias (optional) Alias
+     * @param int $length (optional) Substring length
      *
      * @return  $this
      */
-    public function mid($column, int $start = 1, string $alias = null, int $length = 0): self
+    public function mid($column, int $start = 1, ?string $alias = null, int $length = 0): self
     {
         return $this->column((new Expression())->mid($column, $start, $length), $alias);
     }
@@ -184,12 +184,12 @@ class ColumnExpression
     /**
      * Add a `LEN` expression
      *
-     * @param   string|Expression $column Column
-     * @param   string $alias (optional) Alias
+     * @param string|Expression $column Column
+     * @param string|null $alias (optional) Alias
      *
      * @return  $this
      */
-    public function len($column, string $alias = null): self
+    public function len($column, ?string $alias = null): self
     {
         return $this->column((new Expression())->len($column), $alias);
     }
@@ -197,13 +197,13 @@ class ColumnExpression
     /**
      * Add a `FORMAT` expression
      *
-     * @param   string|Expression $column Column
-     * @param   int $decimals (optional) Decimals
-     * @param   string $alias (optional) Alias
+     * @param string|Expression $column Column
+     * @param int $decimals (optional) Decimals
+     * @param string|null $alias (optional) Alias
      *
      * @return  $this
      */
-    public function round($column, int $decimals = 0, string $alias = null): self
+    public function round($column, int $decimals = 0, ?string $alias = null): self
     {
         return $this->column((new Expression())->format($column, $decimals), $alias);
     }
@@ -211,13 +211,13 @@ class ColumnExpression
     /**
      * Add a `FORMAT` expression
      *
-     * @param   string|Expression $column Column
-     * @param   int $format Decimals
-     * @param   string $alias (optional) Alias
+     * @param string|Expression $column Column
+     * @param int $format Decimals
+     * @param string|null $alias (optional) Alias
      *
      * @return  $this
      */
-    public function format($column, int $format, string $alias = null): self
+    public function format($column, int $format, ?string $alias = null): self
     {
         return $this->column((new Expression())->format($column, $format), $alias);
     }
@@ -225,7 +225,7 @@ class ColumnExpression
     /**
      * Add a `NOW` expression
      *
-     * @param   string $alias (optional) Alias
+     * @param null $alias (optional) Alias
      *
      * @return  $this
      */
