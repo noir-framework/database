@@ -119,7 +119,7 @@ class SelectStatement extends BaseStatement
      * @param string|null $nulls
      * @return SelectStatement
      */
-    public function orderBy($columns, string $order = 'ASC', string $nulls = null): self
+    public function orderBy($columns, string $order = 'ASC', ?string $nulls = null): self
     {
         if (!is_array($columns)) {
             $columns = [$columns];
