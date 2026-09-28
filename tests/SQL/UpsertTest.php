@@ -86,6 +86,23 @@ class UpsertTest extends TestCase
         );
     }
 
+    public function testMySQLRowAlias(): void
+    {
+        $connection = new Connection('mysql');
+        $compiler = $connection->getCompiler();
+        $this->assertInstanceOf(\Noirapi\Database\SQL\Compiler\MySQL::class, $compiler);
+        $compiler->useRowAlias();
+        (new Database($connection))->insert(['id' => 1, 'name' => 'foo', 'hits' => 1])
+            ->upsert('id', ['name', 'hits' => fn (Expression $e) => $e->column('users.hits')->op('+')->value(1)])
+            ->into('users');
+
+        $this->assertEquals(
+            'INSERT INTO `users` (`id`, `name`, `hits`) VALUES (1, \'foo\', 1) AS `excluded`'
+            . ' ON DUPLICATE KEY UPDATE `name` = `excluded`.`name`, `hits` = `users`.`hits` + 1',
+            $connection->lastSql(),
+        );
+    }
+
     public function testMySQLDoNothing(): void
     {
         $this->assertEquals(

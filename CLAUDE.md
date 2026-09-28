@@ -29,15 +29,15 @@ php .cache/docs-bot/fetch-opis-docs.php --out=<dir>        # re-import the origi
 
 `.cache/` is gitignored, so the two docs-bot scripts are local tools and are never committed.
 
-Real PostgreSQL 16, SQL Server 2022 and MariaDB run in Docker (PHP here has no pdo_pgsql or pdo_sqlsrv, so the tests run inside a PHP 8.4 image that has them):
+Real PostgreSQL 16, SQL Server 2022, MySQL 8.4 and MariaDB run in Docker (PHP here has no pdo_pgsql or pdo_sqlsrv, so the tests run inside a PHP 8.4 image that has them):
 
 ```bash
-docker compose -f tests/docker/compose.yml up -d --wait mariadb postgres mssql
+docker compose -f tests/docker/compose.yml up -d --wait mariadb mysql postgres mssql
 docker compose -f tests/docker/compose.yml --profile php run --rm php vendor/bin/phpunit --testsuite Integration --fail-on-skipped
 docker compose -f tests/docker/compose.yml down
 ```
 
-`tests/Integration/ServerScenarios.php` holds the shared scenarios. `PostgreSqlTest`, `SqlServerTest` and `MySqlScenariosTest` extend it, each configured by `NOIRAPI_DB_<PGSQL|SQLSRV|MYSQL>_DSN/_USER/_PASSWORD`, and each skips when its driver or server is missing. CI (`.github/workflows/tests.yml`, job `integration`) runs them with service containers and `--fail-on-skipped`. Run the Docker suite before a release: its first run found four bugs that string tests had missed.
+`tests/Integration/ServerScenarios.php` holds the shared scenarios. `PostgreSqlTest`, `SqlServerTest`, `MySql8Test` and `MySqlScenariosTest` (MariaDB) extend it, each configured by `NOIRAPI_DB_<PGSQL|SQLSRV|MYSQL8|MYSQL>_DSN/_USER/_PASSWORD`, and each skips when its driver or server is missing. CI (`.github/workflows/tests.yml`, job `integration`) runs them with service containers and `--fail-on-skipped`. Run the Docker suite before a release: its first run found four bugs that string tests had missed.
 
 `tests/Integration/MySqlTest.php` runs against a real MySQL or MariaDB server: `NOIRAPI_DB_MYSQL_DSN`, `_USER` and `_PASSWORD`, defaulting to database, user and password `test` on localhost (MariaDB 10.11 on this machine). It skips when the server is unreachable, and it creates and drops only `t_*` tables. 
 Every gate must stay at zero, with no baseline files. If PHPMD reports results that don't match the code, the user-level PDepend cache (`~/.pdepend`) is stale. Run it with `HOME=<tmpdir>` instead of deleting the cache.
@@ -73,6 +73,10 @@ Dialect helpers that a database cannot express call `unsupportedFunction()` (a `
 - **Bit operators on MySQL** return unsigned 64-bit values. The all-bits test is therefore `(~col & mask) = 0`, never `(col & mask) = mask`. Updating a signed BIGINT that holds bit 63 needs `signed: true`, which compiles to `CAST(... AS SIGNED)`.
 - **Upserts:** MySQL uses `VALUES(col)`, since MariaDB lacks the row-alias form. SQL Server gets `MERGE ... WITH (HOLDLOCK)`, and everything else gets `ON CONFLICT`.
 - **SQLite:** in date arithmetic `||` binds tighter than `*`, so the modifier is `(((amount) * n) || ' unit')`. `Schema\Compiler\SQLite::create()` resets the `$nopk` flag; before that fix it leaked into every later table.
+- **MySQL upserts:** `Connection::getCompiler()` asks the server version once, and only when a real DSN or PDO is configured, so the fake test connection never connects. MySQL 8.0.19+ gets `useRowAlias()` (`AS \`excluded\``); MariaDB keeps `VALUES()`.
+- **Identifiers:** `quoteIdentifier()` / schema `wrap()` double the wrapper's closing quote character inside names. Raw SQL entry points (`op()`, `Connection::query()` etc.) are `@psalm-taint-sink sql`.
+- **Reading:** `ResultSet::cast()` delegates to the internal `RowCaster`. With `fetchClass()` it fetches arrays and hydrates the class itself: declared properties first, then the constructor. Aggregates drop ORDER BY when there is no GROUP BY (`Select::getAggregateResult()`), and `paginate()` counts grouped or DISTINCT queries through a sub-query.
+- **Connection:** `run()` wraps prepare+execute with the optional reconnect. `withQuery()` re-throws driver errors with the SQL appended, keeping `errorInfo` and chaining the original. `transaction()` retries deadlocks when `attempts > 1`. `Insert::into()` splits multi-row inserts at `Compiler::getMaxParams()`.
 - **Views:** `Schema::createView()` compiles its query with `SQL\Compiler::selectInline()`, which inlines values with `PDO::quote()`, because `CREATE VIEW` cannot take parameters.
 
 ## Tests

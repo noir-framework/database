@@ -29,6 +29,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   transaction; `SQL\Compiler::getMaxParams()`
 ### Changed
 
+- MySQL 8.0.19+ upserts use the row alias (`AS `excluded``) instead of the deprecated
+  `VALUES(col)`; MariaDB and older MySQL keep `VALUES()`. Integration tests also run on MySQL 8.4
+- Aggregates (`count()`, ...) after `orderBy()` without `groupBy()` drop the ORDER BY
+
 ### Fixed
 
 - Identifiers were wrapped in quotes without escaping, so a name containing the quote character

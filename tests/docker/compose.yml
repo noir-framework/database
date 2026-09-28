@@ -1,5 +1,5 @@
 # Integration test servers. From the repository root:
-#   docker compose -f tests/docker/compose.yml up -d --wait mariadb postgres mssql
+#   docker compose -f tests/docker/compose.yml up -d --wait mariadb mysql postgres mssql
 #   docker compose -f tests/docker/compose.yml run --rm php vendor/bin/phpunit --testsuite Integration
 #   docker compose -f tests/docker/compose.yml down
 services:
@@ -8,6 +8,12 @@ services:
     environment: { MARIADB_DATABASE: test, MARIADB_USER: test, MARIADB_PASSWORD: test, MARIADB_ROOT_PASSWORD: test }
     ports: ["53306:3306"]
     healthcheck: { test: ["CMD", "healthcheck.sh", "--connect"], interval: 2s, retries: 30 }
+
+  mysql:
+    image: mysql:8.4
+    environment: { MYSQL_DATABASE: test, MYSQL_USER: test, MYSQL_PASSWORD: test, MYSQL_ROOT_PASSWORD: test }
+    ports: ["53307:3306"]
+    healthcheck: { test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-utest", "-ptest"], interval: 2s, retries: 60 }
 
   postgres:
     image: postgres:16-alpine
@@ -29,6 +35,7 @@ services:
     volumes: ["../..:/app"]
     environment:
       NOIRAPI_DB_MYSQL_DSN: "mysql:host=mariadb;dbname=test"
+      NOIRAPI_DB_MYSQL8_DSN: "mysql:host=mysql;dbname=test"
       NOIRAPI_DB_PGSQL_DSN: "pgsql:host=postgres;dbname=test"
       NOIRAPI_DB_SQLSRV_DSN: "sqlsrv:Server=mssql;Database=master;TrustServerCertificate=1"
     profiles: ["php"]

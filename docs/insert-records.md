@@ -111,8 +111,11 @@ MERGE INTO [users] WITH (HOLDLOCK) USING (VALUES (1, 'Ann'), (2, 'Bob')) AS [exc
 
 Notes:
 
-- MySQL uses `VALUES(col)` rather than the MySQL 8.0.19 row alias, because MariaDB only
-  supports `VALUES()`. MySQL 8.0.20+ logs a deprecation warning for it but runs it.
+- On MySQL 8.0.19 and newer, the inserted row is referenced through a row alias,
+  `... VALUES (...) AS `excluded` ON DUPLICATE KEY UPDATE name = excluded.name`. Older MySQL
+  versions and MariaDB (which has no row alias) get `VALUES(col)`, which MySQL 8.0.20+ would
+  log as deprecated. The connection checks the server version once, when it creates the
+  compiler.
 - For "do nothing", MySQL gets `ON DUPLICATE KEY UPDATE key = key` rather than `INSERT IGNORE`,
   which would also silence unrelated errors such as truncation.
 - `HOLDLOCK` keeps two concurrent SQL Server upserts from inserting the same key.

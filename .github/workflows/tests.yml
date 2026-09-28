@@ -48,7 +48,7 @@ jobs:
 
   integration:
     runs-on: ubuntu-latest
-    name: Integration (MariaDB, PostgreSQL, SQL Server)
+    name: Integration (MariaDB, MySQL 8, PostgreSQL, SQL Server)
 
     services:
       mariadb:
@@ -57,6 +57,12 @@ jobs:
         ports: ['3306:3306']
         options: >-
           --health-cmd "healthcheck.sh --connect" --health-interval 2s --health-retries 30
+      mysql:
+        image: mysql:8.4
+        env: { MYSQL_DATABASE: test, MYSQL_USER: test, MYSQL_PASSWORD: test, MYSQL_ROOT_PASSWORD: test }
+        ports: ['3307:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -utest -ptest" --health-interval 2s --health-retries 60
       postgres:
         image: postgres:16-alpine
         env: { POSTGRES_DB: test, POSTGRES_USER: test, POSTGRES_PASSWORD: test }
@@ -73,6 +79,7 @@ jobs:
 
     env:
       NOIRAPI_DB_MYSQL_DSN: 'mysql:host=127.0.0.1;dbname=test'
+      NOIRAPI_DB_MYSQL8_DSN: 'mysql:host=127.0.0.1;port=3307;dbname=test'
       NOIRAPI_DB_PGSQL_DSN: 'pgsql:host=127.0.0.1;port=5432;dbname=test'
       NOIRAPI_DB_SQLSRV_DSN: 'sqlsrv:Server=127.0.0.1,1433;Database=master;TrustServerCertificate=1'
 

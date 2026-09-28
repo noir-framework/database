@@ -46,7 +46,9 @@ use function microtime;
 use function preg_match;
 use function preg_replace_callback;
 use function random_int;
+use function stripos;
 use function usleep;
+use function version_compare;
 
 /**
  * Lazily connected PDO wrapper that picks the SQL and schema compilers for its driver.
@@ -337,6 +339,9 @@ class Connection
             $dialect = self::SQL_DIALECTS[$driver] ?? SQL\Compiler::class;
             $this->compiler = new $dialect();
             $this->compiler->setOptions($this->compilerOptions);
+            if ($this->compiler instanceof SQL\Compiler\MySQL && $this->supportsRowAlias()) {
+                $this->compiler->useRowAlias();
+            }
         }
 
         return $this->compiler;
@@ -719,6 +724,26 @@ class Connection
             };
             $statement->bindValue($key + 1, $value, $type);
         }
+    }
+
+    /**
+     * MySQL 8.0.19+ (not MariaDB) supports `INSERT ... AS alias ON DUPLICATE KEY UPDATE`.
+     * Only asked when a real connection is configured.
+     *
+     * @throws PDOException When connecting fails
+     */
+    private function supportsRowAlias(): bool
+    {
+        if ($this->pdo === null && ($this->dsn ?? '') === '') {
+            return false;
+        }
+
+        $version = $this->getPDO()->getAttribute(PDO::ATTR_SERVER_VERSION);
+        if (!is_string($version) || stripos($version, 'mariadb') !== false) {
+            return false;
+        }
+
+        return preg_match('/^(\d+\.\d+\.\d+)/', $version, $match) === 1 && version_compare($match[1], '8.0.19', '>=');
     }
 
     /**

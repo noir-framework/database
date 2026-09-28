@@ -37,6 +37,21 @@ class MySQL extends Compiler
     /** Placeholders are counted in 16 bits. */
     protected int $maxParams = 65535;
 
+    /** Use the MySQL 8.0.19+ row alias instead of the deprecated VALUES(col) in upserts. */
+    private bool $rowAlias = false;
+
+    /**
+     * Upserts reference the inserted row as `excluded`.`col` (MySQL 8.0.19+) instead of
+     * VALUES(col), which MySQL 8.0.20+ deprecates. MariaDB only supports VALUES(col).
+     * Connection enables this for MySQL servers that support it.
+     */
+    public function useRowAlias(bool $value = true): static
+    {
+        $this->rowAlias = $value;
+
+        return $this;
+    }
+
     /**
      * Kept from opis/database for output compatibility: MySQL's ROUND() is emitted as FORMAT().
      */
@@ -66,7 +81,7 @@ class MySQL extends Compiler
     /**
      * ON DUPLICATE KEY UPDATE, which fires on any unique key, so the conflict keys only matter
      * for "do nothing" (a no-op assignment, since INSERT IGNORE would also swallow other errors).
-     * VALUES(col) is used rather than the MySQL 8.0.19 row alias so MariaDB is supported.
+     * The inserted value is VALUES(col), or `excluded`.`col` with useRowAlias().
      */
     #[Override]
     protected function handleUpsert(?UpsertClause $upsert, array $columns): string
@@ -85,10 +100,15 @@ class MySQL extends Compiler
         $sql = [];
         foreach ($assignments as $assignment) {
             $sql[] = is_string($assignment)
-                ? $this->wrap($assignment) . ' = VALUES(' . $this->wrap($assignment) . ')'
+                ? $this->wrap($assignment) . ' = ' . $this->insertedValue($assignment)
                 : $this->wrap($assignment->column) . ' = ' . $this->param($assignment->value);
         }
 
-        return ' ON DUPLICATE KEY UPDATE ' . implode(', ', $sql);
+        return ($this->rowAlias ? ' AS `excluded`' : '') . ' ON DUPLICATE KEY UPDATE ' . implode(', ', $sql);
+    }
+
+    private function insertedValue(string $column): string
+    {
+        return $this->rowAlias ? '`excluded`.' . $this->wrap($column) : 'VALUES(' . $this->wrap($column) . ')';
     }
 }
