@@ -252,6 +252,40 @@ final class MySqlTest extends TestCase
         $this->assertSame([12, 12], $this->db->from('t_bits')->select(['s', 'u'])->fetchNum()->first());
     }
 
+    public function testJsonDocuments(): void
+    {
+        $this->db->schema()->alter('t_users', static function (AlterTable $table): void {
+            $table->json('meta');
+        });
+        $this->db->insertMany([
+            ['name' => 'Jan', 'age' => 30, 'meta' => '{"city": "Sofia", "tags": ["a", "b"], "n": null, "addr": {"zip": "1000"}}'],
+            ['name' => 'Kim', 'age' => 20, 'meta' => '{"city": "Varna", "tags": ["c"], "addr": {"zip": "9000"}}'],
+        ])->into('t_users');
+
+        $q = fn () => $this->db->from('t_users')->where('name')->in(['Jan', 'Kim'])->orderBy('name');
+        $this->assertSame([['Jan', 'Sofia'], ['Kim', 'Varna']], $q()->select(['name', 'meta->city' => 'city'])->fetchNum()->all());
+        $this->assertSame('Kim', $q()->where('meta->addr->zip')->is('9000')->column('name'));
+        $this->assertSame('b', $q()->where('name')->is('Jan')->column(static fn (Expression $e) => $e->json('meta', 'tags[1]')));
+        $this->assertSame('Jan', $q()->where('meta->tags')->jsonContains('b')->column('name'));
+        $this->assertSame(1, $q()->where('meta->tags')->jsonNotContains('b')->count());
+        $this->assertSame(1, $q()->where('meta->n')->jsonExists()->count());
+        $this->assertSame(2, $q()->where('meta->n')->isNull()->count());
+        $this->assertSame(1, $q()->where('meta->n')->jsonNotExists()->count());
+
+        $this->db->update('t_users')->where('name')->is('Jan')->set([
+            'meta->city' => 'Plovdiv',
+            'meta->visits' => 3,
+            'meta->vip' => true,
+            'meta->tags' => ['x'],
+            'meta->addr->zip' => '4000',
+            'age' => 31,
+        ]);
+        $meta = json_decode((string) $q()->where('name')->is('Jan')->column('meta'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($meta);
+        $this->assertSame(['Plovdiv', 3, true, ['x'], ['zip' => '4000'], null], [$meta['city'], $meta['visits'], $meta['vip'], $meta['tags'], $meta['addr'], $meta['n']]);
+        $this->assertSame(31, $q()->where('name')->is('Jan')->column('age'));
+    }
+
     private function dropAll(): void
     {
         $pdo = $this->db->getConnection()->getPDO();

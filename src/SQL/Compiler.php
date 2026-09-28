@@ -44,6 +44,7 @@ use Noirapi\Database\SQL\Clause\JoinClause;
 use Noirapi\Database\SQL\Clause\JoinColumn;
 use Noirapi\Database\SQL\Clause\JoinExpression;
 use Noirapi\Database\SQL\Clause\JoinNested;
+use Noirapi\Database\SQL\Clause\JsonPart;
 use Noirapi\Database\SQL\Clause\OperatorPart;
 use Noirapi\Database\SQL\Clause\OrderClause;
 use Noirapi\Database\SQL\Clause\SelectColumn;
@@ -58,6 +59,8 @@ use Noirapi\Database\SQL\Clause\WhereColumn;
 use Noirapi\Database\SQL\Clause\WhereExists;
 use Noirapi\Database\SQL\Clause\WhereIn;
 use Noirapi\Database\SQL\Clause\WhereInSelect;
+use Noirapi\Database\SQL\Clause\WhereJsonContains;
+use Noirapi\Database\SQL\Clause\WhereJsonExists;
 use Noirapi\Database\SQL\Clause\WhereLike;
 use Noirapi\Database\SQL\Clause\WhereNested;
 use Noirapi\Database\SQL\Clause\WhereNop;
@@ -73,6 +76,7 @@ use function is_bool;
 use function is_float;
 use function is_int;
 use function is_string;
+use function json_encode;
 use function sprintf;
 use function str_replace;
 use function strtoupper;
@@ -234,6 +238,11 @@ class Compiler
             return $this->handleExpressions($value->getExpressions());
         }
 
+        $json = JsonPath::fromArrow($value);
+        if ($json !== null) {
+            return $this->jsonExtract($this->wrap($json[0]), $json[1]);
+        }
+
         $wrapped = [];
         foreach (explode('.', $value) as $segment) {
             $wrapped[] = $segment === '*' ? $segment : sprintf($this->wrapper, $segment);
@@ -298,6 +307,7 @@ class Compiler
                 $expr instanceof CallPart => $this->handleCall($expr),
                 $expr instanceof DateArithmetic => $this->handleDateArithmetic($expr),
                 $expr instanceof BitsPart => $this->handleBits($expr),
+                $expr instanceof JsonPart => $this->jsonExtract($this->wrap($expr->column), $expr->path),
                 default => throw new LogicException('Unsupported expression part: ' . get_debug_type($expr)),
             };
         }
@@ -495,7 +505,12 @@ class Compiler
     }
 
     /**
+     * `col->path` keys update a path inside a JSON column; all paths of one column are set by
+     * a single assignment.
+     *
      * @param list<UpdateColumn> $columns
+     *
+     * @throws InvalidArgumentException When a column is set both whole and by JSON path
      */
     protected function handleSetColumns(array $columns): string
     {
@@ -503,12 +518,94 @@ class Compiler
             return '';
         }
 
-        $sql = [];
+        /** @var array<string, UpdateColumn|list<array{JsonPath, mixed}>> $assignments */
+        $assignments = [];
         foreach ($columns as $column) {
-            $sql[] = $this->wrap($column->column) . ' = ' . $this->param($column->value);
+            $json = JsonPath::fromArrow($column->column);
+            if ($json === null) {
+                $assignments[$column->column] = isset($assignments[$column->column])
+                    ? throw new InvalidArgumentException('Column "' . $column->column . '" is set twice')
+                    : $column;
+                continue;
+            }
+
+            $current = $assignments[$json[0]] ?? [];
+            if ($current instanceof UpdateColumn) {
+                throw new InvalidArgumentException('Column "' . $json[0] . '" is set both whole and by JSON path');
+            }
+            $current[] = [$json[1], $column->value];
+            $assignments[$json[0]] = $current;
+        }
+
+        $sql = [];
+        foreach ($assignments as $name => $assignment) {
+            $sql[] = $assignment instanceof UpdateColumn
+                ? $this->wrap($assignment->column) . ' = ' . $this->param($assignment->value)
+                : $this->wrap($name) . ' = ' . $this->jsonSet($this->wrap($name), $assignment);
         }
 
         return ' SET ' . implode(', ', $sql);
+    }
+
+    /**
+     * The scalar at the path as text: JSON_VALUE (MySQL 8.0.21+, MariaDB, SQL Server).
+     */
+    protected function jsonExtract(string $column, JsonPath $path): string
+    {
+        return 'JSON_VALUE(' . $column . ', ' . $this->quote($path->dollar()) . ')';
+    }
+
+    /**
+     * JSON_SET(col, path, value, ...). Strings are bound as they are; other values are sent
+     * as JSON text through JSON_EXTRACT(?, '$'), since MariaDB would store a bound number as
+     * a string. Parent objects must already exist.
+     *
+     * @param list<array{JsonPath, mixed}> $paths
+     */
+    protected function jsonSet(string $column, array $paths): string
+    {
+        $sql = 'JSON_SET(' . $column;
+        /** @var mixed $value */
+        foreach ($paths as [$path, $value]) {
+            $sql .= ', ' . $this->quote($path->dollar()) . ', ' . $this->jsonValue($value, "JSON_EXTRACT(%s, '$')");
+        }
+
+        return $sql . ')';
+    }
+
+    /**
+     * An expression inline, a string as a parameter, anything else as a JSON-encoded parameter
+     * placed into $format.
+     */
+    protected function jsonValue(mixed $value, string $format): string
+    {
+        if ($value instanceof Expression || is_string($value)) {
+            return $this->param($value);
+        }
+
+        return sprintf($format, $this->param($this->jsonEncode($value)));
+    }
+
+    /**
+     * The wrapped column and the arrow path, if any.
+     *
+     * @return array{string, JsonPath|null}
+     */
+    protected function jsonTarget(string|Expression $column): array
+    {
+        $json = is_string($column) ? JsonPath::fromArrow($column) : null;
+
+        return $json === null ? [$this->wrap($column), null] : [$this->wrap($json[0]), $json[1]];
+    }
+
+    /**
+     * @throws \JsonException
+     */
+    protected function jsonEncode(mixed $value): string
+    {
+        $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION;
+
+        return json_encode($value, JSON_THROW_ON_ERROR | $flags);
     }
 
     /**
@@ -617,6 +714,8 @@ class Compiler
             $condition instanceof WhereLike => $this->whereLike($condition),
             $condition instanceof WhereNop => $this->whereNop($condition),
             $condition instanceof WhereBits => $this->whereBits($condition),
+            $condition instanceof WhereJsonContains => $this->whereJsonContains($condition),
+            $condition instanceof WhereJsonExists => $this->whereJsonExists($condition),
             $condition instanceof HavingCondition => $this->havingCondition($condition),
             $condition instanceof HavingNested => $this->havingNested($condition),
             $condition instanceof HavingBetween => $this->havingBetween($condition),
@@ -698,6 +797,30 @@ class Compiler
             BitTest::Any => '(' . $column . ' & ' . $this->param($where->mask) . ') != 0',
             BitTest::None => '(' . $column . ' & ' . $this->param($where->mask) . ') = 0',
         };
+    }
+
+    /**
+     * JSON_CONTAINS(doc, json[, path]) (MySQL/MariaDB).
+     */
+    protected function whereJsonContains(WhereJsonContains $where): string
+    {
+        [$column, $path] = $this->jsonTarget($where->column);
+
+        $value = $this->param($this->jsonEncode($where->value));
+
+        return ($where->not ? 'NOT ' : '') . 'JSON_CONTAINS(' . $column . ', ' . $value
+            . ($path === null ? '' : ', ' . $this->quote($path->dollar())) . ')';
+    }
+
+    /**
+     * JSON_CONTAINS_PATH(doc, 'one', path) (MySQL/MariaDB).
+     */
+    protected function whereJsonExists(WhereJsonExists $where): string
+    {
+        [$column, $path] = $this->jsonTarget($where->column);
+
+        return ($where->not ? 'NOT ' : '') . 'JSON_CONTAINS_PATH(' . $column . ", 'one', "
+            . $this->quote($path?->dollar() ?? '$') . ')';
     }
 
     protected function whereNop(WhereNop $where): string

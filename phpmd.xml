@@ -16,8 +16,9 @@
     </rule>
     <rule ref="rulesets/cleancode.xml/StaticAccess">
         <properties>
-            <!-- Expression::fromClosure() is the named constructor used throughout the builders. -->
-            <property name="exceptions" value="\Noirapi\Database\SQL\Expression" />
+            <!-- Named constructors used throughout the builders: Expression::fromClosure(),
+                 JsonPath::fromArrow() / fromPath(). -->
+            <property name="exceptions" value="\Noirapi\Database\SQL\Expression,\Noirapi\Database\SQL\JsonPath" />
         </properties>
     </rule>
 

@@ -33,6 +33,7 @@ use Noirapi\Database\SQL\Clause\DateArithmetic;
 use Noirapi\Database\SQL\Clause\ExpressionPart;
 use Noirapi\Database\SQL\Clause\FunctionName;
 use Noirapi\Database\SQL\Clause\GroupPart;
+use Noirapi\Database\SQL\Clause\JsonPart;
 use Noirapi\Database\SQL\Clause\OperatorPart;
 use Noirapi\Database\SQL\Clause\SqlFunction;
 use Noirapi\Database\SQL\Clause\SubqueryPart;
@@ -55,6 +56,7 @@ use function preg_match;
  * @psalm-type ColumnArg = string|Expression|(Closure(Expression): mixed)
  *
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Creates every expression token type.
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity") One small method per SQL function / operator.
  */
 class Expression
 {
@@ -290,6 +292,20 @@ class Expression
     public function bits(string|self|Closure $column, int $set = 0, int $clear = 0, bool $signed = false): static
     {
         return $this->addExpression(new BitsPart(self::normalize($column), $set, $clear, $signed));
+    }
+
+    /**
+     * The scalar at a JSON path as text (JSON null is NULL): `$e->json('meta', 'address.city')`,
+     * also `'$.items[0]'` or `['address', 'city']`. Same as the `meta->address->city` column form.
+     *
+     * @param ColumnArg $column
+     * @param string|list<string|int> $path
+     *
+     * @throws \InvalidArgumentException On an invalid key (quotes, backslashes, control characters)
+     */
+    public function json(string|self|Closure $column, string|array $path): static
+    {
+        return $this->addExpression(new JsonPart(self::normalize($column), JsonPath::fromPath($path)));
     }
 
     /**

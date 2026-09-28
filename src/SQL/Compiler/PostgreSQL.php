@@ -23,8 +23,12 @@ namespace Noirapi\Database\SQL\Compiler;
 
 use Noirapi\Database\SQL\Clause\DateArithmetic;
 use Noirapi\Database\SQL\Clause\SqlFunction;
+use Noirapi\Database\SQL\Clause\WhereJsonContains;
+use Noirapi\Database\SQL\Clause\WhereJsonExists;
 use Noirapi\Database\SQL\Compiler;
+use Noirapi\Database\SQL\Expression;
 use Noirapi\Database\SQL\Interval;
+use Noirapi\Database\SQL\JsonPath;
 use Override;
 
 /**
@@ -71,6 +75,53 @@ class PostgreSQL extends Compiler
     {
         return '(' . $this->wrap($date->date) . ($date->subtract ? ' - ' : ' + ') . 'make_interval('
             . $this->intervalUnit($date->unit) . ' => ' . $this->dateAmount($date->amount) . '))';
+    }
+
+    #[Override]
+    protected function jsonExtract(string $column, JsonPath $path): string
+    {
+        return '(' . $column . ' #>> ' . $this->quote($path->pgArray()) . ')';
+    }
+
+    /**
+     * jsonb containment, which also matches nested objects: CAST(doc AS jsonb) @> CAST(? AS jsonb).
+     */
+    #[Override]
+    protected function whereJsonContains(WhereJsonContains $where): string
+    {
+        [$column, $path] = $this->jsonTarget($where->column);
+        $document = $path === null ? $column : '(' . $column . ' #> ' . $this->quote($path->pgArray()) . ')';
+
+        return ($where->not ? 'NOT ' : '') . '(CAST(' . $document . ' AS jsonb) @> CAST('
+            . $this->param($this->jsonEncode($where->value)) . ' AS jsonb))';
+    }
+
+    #[Override]
+    protected function whereJsonExists(WhereJsonExists $where): string
+    {
+        [$column, $path] = $this->jsonTarget($where->column);
+
+        return '(' . $column . ' #> ' . $this->quote($path?->pgArray() ?? '{}') . ')'
+            . ($where->not ? ' IS NULL' : ' IS NOT NULL');
+    }
+
+    /**
+     * Nested jsonb_set(CAST(col AS jsonb), '{path}', value): parent objects must exist.
+     */
+    #[Override]
+    protected function jsonSet(string $column, array $paths): string
+    {
+        $sql = 'CAST(' . $column . ' AS jsonb)';
+        /** @var mixed $value */
+        foreach ($paths as [$path, $value]) {
+            $sql = 'jsonb_set(' . $sql . ', ' . $this->quote($path->pgArray()) . ', '
+                . ($value instanceof Expression
+                    ? 'to_jsonb(' . $this->param($value) . ')'
+                    : 'CAST(' . $this->param($this->jsonEncode($value)) . ' AS jsonb)')
+                . ')';
+        }
+
+        return $sql;
     }
 
     #[Override]

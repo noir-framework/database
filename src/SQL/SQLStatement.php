@@ -41,6 +41,8 @@ use Noirapi\Database\SQL\Clause\WhereColumn;
 use Noirapi\Database\SQL\Clause\WhereExists;
 use Noirapi\Database\SQL\Clause\WhereIn;
 use Noirapi\Database\SQL\Clause\WhereInSelect;
+use Noirapi\Database\SQL\Clause\WhereJsonContains;
+use Noirapi\Database\SQL\Clause\WhereJsonExists;
 use Noirapi\Database\SQL\Clause\WhereLike;
 use Noirapi\Database\SQL\Clause\WhereNested;
 use Noirapi\Database\SQL\Clause\WhereNop;
@@ -61,6 +63,7 @@ use function strtoupper;
  *
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity") Collects every clause type of the fluent API.
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Creates every clause value object.
+ * @SuppressWarnings("PHPMD.ExcessivePublicCount") An adder and a getter per clause kind; read by the compilers.
  * @SuppressWarnings("PHPMD.TooManyFields") One field per clause kind of SELECT/INSERT/UPDATE/DELETE.
  * @SuppressWarnings("PHPMD.BooleanGetMethodName") getDistinct() is public opis/database API.
  */
@@ -207,6 +210,32 @@ class SQLStatement
         string $separator,
     ): void {
         $this->wheres[] = new WhereBits($this->toExpression($column), $mask, $test, $separator);
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function addWhereJsonContainsCondition(
+        string|Expression|Closure $column,
+        mixed $value,
+        string $separator,
+        bool $not,
+    ): void {
+        $this->wheres[] = new WhereJsonContains($this->toExpression($column), $value, $not, $separator);
+    }
+
+    /**
+     * @param ColumnArg $column An arrow path such as `meta->a->b`
+     *
+     * @throws InvalidArgumentException When the column is not an arrow path
+     */
+    public function addWhereJsonExistsCondition(string|Expression|Closure $column, string $separator, bool $not): void
+    {
+        if (!is_string($column) || JsonPath::fromArrow($column) === null) {
+            throw new InvalidArgumentException('jsonExists() needs an arrow path column such as "meta->key"');
+        }
+
+        $this->wheres[] = new WhereJsonExists($column, $not, $separator);
     }
 
     /**

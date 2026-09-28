@@ -65,6 +65,8 @@ function check(Database $db): void
     assertType(Query::class, $db->from('users')->orWhereExpression(static fn (Expression $e) => $e->column('a'))->is(null));
     assertType(Query::class, $db->from('users')->where('a')->isNotNull());
     assertType(Expression::class, Expression::fromCall('NOW'));
+    assertType(Query::class, $db->from('users')->where('meta->a->b')->is(1)->andWhere('tags')->jsonContains('x')->orWhere('meta->c')->jsonExists());
+    assertType(Expression::class, (new Expression())->json('meta', 'a.b[0]'));
     assertType(Expression::class, (new Expression())->ago(4, Interval::Day));
     assertType(Query::class, $db->from('orders')->where('added_on')->atMost(static fn (Expression $e) => $e->ago(4, Interval::Day)));
     assertType(Expression::class, (new Expression())->call('COALESCE', 1)->call('NOW'));

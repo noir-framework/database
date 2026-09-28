@@ -26,6 +26,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - `inet6Aton()`, `inet6Ntoa()`, `inetAton()`, `inetNtoa()` on `Expression` (MySQL/MariaDB; other
   drivers throw `LogicException`)
 - SQL compilers for PostgreSQL and SQLite (`SQL\Compiler\PostgreSQL`, `SQL\Compiler\SQLite`)
+- JSON paths: `meta->address->city` / `meta->tags[0]` in column names (where, select, order,
+  group) read the scalar at that path (JSON_VALUE, `#>>`, json_extract); `Expression::json($col, 'a.b[0]')`;
+  `where(...)->jsonContains()`, `jsonNotContains()`, `jsonExists()`, `jsonNotExists()`; and
+  `update()->set(['meta->a' => 1])` changes paths in place (JSON_SET, jsonb_set, json_set,
+  JSON_MODIFY) keeping value types. Path keys with quotes or backslashes are rejected
 - Bit-field helpers: `where('flags')->hasAllBits($mask)`, `hasAnyBits()`, `hasNoBits()`;
   `Update::setBits()` / `clearBits()` and `Expression::bits($col, set:, clear:)` for `set()`.
   Correct for bit 63 (`PHP_INT_MIN`) on signed and UNSIGNED BIGINT; on MySQL a signed column
@@ -45,6 +50,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `CHANGE old new <type>`, which dropped NOT NULL, defaults and comments
 - `SQL\Compiler::handleInsertValues()` replaced by `handleInsertRows()`
 - `Expression` property writes throw `LogicException`
+- Column names containing `->` are JSON paths (previously quoted as a literal identifier)
 - `ucase()`, `lcase()`, `mid()`, `len()`, `now()` compile to functions that exist on each database:
   UPPER/LOWER/SUBSTR/LENGTH on PostgreSQL and SQLite, UPPER/LOWER/SUBSTRING/GETDATE() on SQL Server,
   `datetime('now')` on SQLite. MySQL and the generic compiler are unchanged

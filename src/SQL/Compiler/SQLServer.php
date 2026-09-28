@@ -24,7 +24,10 @@ namespace Noirapi\Database\SQL\Compiler;
 use LogicException;
 use Noirapi\Database\SQL\Clause\DateArithmetic;
 use Noirapi\Database\SQL\Clause\SqlFunction;
+use Noirapi\Database\SQL\Clause\WhereJsonContains;
+use Noirapi\Database\SQL\Clause\WhereJsonExists;
 use Noirapi\Database\SQL\Compiler;
+use Noirapi\Database\SQL\Expression;
 use Noirapi\Database\SQL\Interval;
 use Noirapi\Database\SQL\SQLStatement;
 use Override;
@@ -32,6 +35,10 @@ use Override;
 use function array_map;
 use function array_values;
 use function implode;
+use function is_bool;
+use function is_float;
+use function is_int;
+use function is_scalar;
 use function is_string;
 use function ltrim;
 use function strtolower;
@@ -212,6 +219,61 @@ class SQLServer extends Compiler
         }
 
         return 'DATEADD(' . $this->intervalUnit($date->unit) . ', ' . $amount . ', ' . $this->wrap($date->date) . ')';
+    }
+
+    /**
+     * A scalar among the elements: EXISTS (SELECT 1 FROM OPENJSON(doc[, path]) WHERE [value] = ?).
+     *
+     * @throws LogicException For arrays and objects, which OPENJSON() values cannot match
+     */
+    #[Override]
+    protected function whereJsonContains(WhereJsonContains $where): string
+    {
+        if (!is_scalar($where->value)) {
+            throw new LogicException('jsonContains() on SQL Server only searches for scalar values');
+        }
+
+        [$column, $path] = $this->jsonTarget($where->column);
+        $value = is_bool($where->value) ? ($where->value ? 'true' : 'false') : $where->value;
+
+        return ($where->not ? 'NOT ' : '') . 'EXISTS (SELECT 1 FROM OPENJSON(' . $column
+            . ($path === null ? '' : ', ' . $this->quote($path->dollar())) . ') WHERE [value] = '
+            . $this->param($value) . ')';
+    }
+
+    /**
+     * JSON_PATH_EXISTS() needs SQL Server 2022 or Azure SQL.
+     */
+    #[Override]
+    protected function whereJsonExists(WhereJsonExists $where): string
+    {
+        [$column, $path] = $this->jsonTarget($where->column);
+
+        return 'JSON_PATH_EXISTS(' . $column . ', ' . $this->quote($path?->dollar() ?? '$') . ')'
+            . ($where->not ? ' = 0' : ' = 1');
+    }
+
+    /**
+     * Nested JSON_MODIFY(): numbers and strings as they are, booleans as BIT, arrays and objects
+     * through JSON_QUERY(); null uses a strict path, since lax mode would delete the key.
+     */
+    #[Override]
+    protected function jsonSet(string $column, array $paths): string
+    {
+        $sql = $column;
+        /** @var mixed $value */
+        foreach ($paths as [$path, $value]) {
+            $target = $this->quote(($value === null ? 'strict ' : '') . $path->dollar());
+            $sql = 'JSON_MODIFY(' . $sql . ', ' . $target . ', ' . match (true) {
+                $value === null => 'NULL',
+                $value instanceof Expression, is_string($value), is_int($value), is_float($value)
+                    => $this->param($value),
+                is_bool($value) => 'CAST(' . $this->param($value) . ' AS BIT)',
+                default => 'JSON_QUERY(' . $this->param($this->jsonEncode($value)) . ')',
+            } . ')';
+        }
+
+        return $sql;
     }
 
     #[Override]

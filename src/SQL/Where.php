@@ -236,6 +236,56 @@ class Where
     }
 
     /**
+     * The JSON array/document in the column (or at its arrow path) contains the value:
+     * `where('tags')->jsonContains('x')`, `where('meta->roles')->jsonContains('admin')`.
+     * On SQLite and SQL Server only scalars in arrays can be searched.
+     *
+     * @return TStatement
+     */
+    public function jsonContains(mixed $value): WhereStatement
+    {
+        $this->sql->addWhereJsonContainsCondition($this->column, $value, $this->separator, false);
+
+        return $this->statement;
+    }
+
+    /**
+     * @return TStatement
+     */
+    public function jsonNotContains(mixed $value): WhereStatement
+    {
+        $this->sql->addWhereJsonContainsCondition($this->column, $value, $this->separator, true);
+
+        return $this->statement;
+    }
+
+    /**
+     * The arrow path exists, even when its value is JSON null: `where('meta->a')->jsonExists()`.
+     *
+     * @return TStatement
+     *
+     * @throws \InvalidArgumentException When the column is not an arrow path
+     */
+    public function jsonExists(): WhereStatement
+    {
+        $this->sql->addWhereJsonExistsCondition($this->column, $this->separator, false);
+
+        return $this->statement;
+    }
+
+    /**
+     * @return TStatement
+     *
+     * @throws \InvalidArgumentException When the column is not an arrow path
+     */
+    public function jsonNotExists(): WhereStatement
+    {
+        $this->sql->addWhereJsonExistsCondition($this->column, $this->separator, true);
+
+        return $this->statement;
+    }
+
+    /**
      * Alias of notNull().
      *
      * @return TStatement

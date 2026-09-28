@@ -21,13 +21,18 @@ declare(strict_types=1);
 
 namespace Noirapi\Database\SQL\Compiler;
 
+use LogicException;
 use Noirapi\Database\SQL\Clause\DateArithmetic;
 use Noirapi\Database\SQL\Clause\SqlFunction;
+use Noirapi\Database\SQL\Clause\WhereJsonContains;
+use Noirapi\Database\SQL\Clause\WhereJsonExists;
 use Noirapi\Database\SQL\Compiler;
 use Noirapi\Database\SQL\Interval;
+use Noirapi\Database\SQL\JsonPath;
 use Override;
 
 use function is_int;
+use function is_scalar;
 
 /**
  * SQLite has no UCASE/LCASE/MID/LEN, NOW() or DATE_ADD: those map to its own functions.
@@ -85,6 +90,55 @@ class SQLite extends Compiler
             : '(((' . $this->wrap($date->amount) . ') * ' . ($sign * $weeks) . ") || '" . $unit . "')";
 
         return 'datetime(' . $this->wrap($date->date) . ', ' . $modifier . ')';
+    }
+
+    #[Override]
+    protected function jsonExtract(string $column, JsonPath $path): string
+    {
+        return 'json_extract(' . $column . ', ' . $this->quote($path->dollar()) . ')';
+    }
+
+    /**
+     * A scalar among the elements: EXISTS (SELECT 1 FROM json_each(doc[, path]) WHERE value = ?).
+     *
+     * @throws LogicException For arrays and objects, which json_each() cannot match
+     */
+    #[Override]
+    protected function whereJsonContains(WhereJsonContains $where): string
+    {
+        if (!is_scalar($where->value)) {
+            throw new LogicException('jsonContains() on SQLite only searches for scalar values');
+        }
+
+        [$column, $path] = $this->jsonTarget($where->column);
+
+        return ($where->not ? 'NOT ' : '') . 'EXISTS (SELECT 1 FROM json_each(' . $column
+            . ($path === null ? '' : ', ' . $this->quote($path->dollar())) . ') WHERE value = '
+            . $this->param($where->value) . ')';
+    }
+
+    #[Override]
+    protected function whereJsonExists(WhereJsonExists $where): string
+    {
+        [$column, $path] = $this->jsonTarget($where->column);
+
+        return 'json_type(' . $column . ', ' . $this->quote($path?->dollar() ?? '$') . ')'
+            . ($where->not ? ' IS NULL' : ' IS NOT NULL');
+    }
+
+    /**
+     * json_set(col, path, value, ...); it creates missing parent objects.
+     */
+    #[Override]
+    protected function jsonSet(string $column, array $paths): string
+    {
+        $sql = 'json_set(' . $column;
+        /** @var mixed $value */
+        foreach ($paths as [$path, $value]) {
+            $sql .= ', ' . $this->quote($path->dollar()) . ', ' . $this->jsonValue($value, 'json(%s)');
+        }
+
+        return $sql . ')';
     }
 
     #[Override]
