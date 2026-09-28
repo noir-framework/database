@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,38 +16,35 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
 use Noirapi\Database\Connection;
+use Override;
 
+/**
+ * DELETE bound to a connection; `delete()` runs it.
+ */
 class Delete extends DeleteStatement
 {
-    /** @var    Connection */
-    protected $connection;
-
     /**
-     * Delete constructor.
-     * @param Connection $connection
-     * @param string|array $from
-     * @param SQLStatement|null $statement
+     * @param string|array<int|string, string|Expression> $from
      */
-    public function __construct(Connection $connection, $from, ?SQLStatement $statement = null)
+    public function __construct(protected Connection $connection, string|array $from, ?SQLStatement $statement = null)
     {
         parent::__construct($from, $statement);
-        $this->connection = $connection;
     }
 
     /**
-     * Delete records
+     * Runs the delete and returns the affected row count.
      *
-     * @param   string|array $tables (optional)
-     *
-     * @return  int
+     * @param string|array<int|string, string|Expression> $tables
      */
-    public function delete($tables = [])
+    #[Override]
+    public function delete(string|array $tables = []): int
     {
         parent::delete($tables);
         $compiler = $this->connection->getCompiler();
+
         return $this->connection->count($compiler->delete($this->sql), $compiler->getParams());
     }
 }

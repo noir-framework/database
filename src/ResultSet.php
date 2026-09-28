@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,210 +16,219 @@
  * limitations under the License.
  * ============================================================================ */
 
+declare(strict_types=1);
 namespace Noirapi\Database;
 
-use PDO;
 use Closure;
+use PDO;
 use PDOStatement;
 
+/**
+ * Wraps an executed PDOStatement. Choose a fetch mode (`fetchAssoc()`, `fetchClass()`, ...)
+ * then read rows with `all()`, `first()` or `next()`.
+ *
+ * @template TRow
+ */
 class ResultSet
 {
-    /** @var    \PDOStatement   The PDOStatement associated with this result set. */
-    protected $statement;
-
-    /**
-     * Constructor
-     *
-     * @param   \PDOStatement $statement The PDOStatement associated with this result set.
-     */
-    public function __construct(PDOStatement $statement)
+    public function __construct(protected PDOStatement $statement)
     {
-        $this->statement = $statement;
     }
 
-    /**
-     * Destructor
-     */
     public function __destruct()
     {
         $this->statement->closeCursor();
     }
 
     /**
-     * Count affected rows
-     *
-     * @return  int
+     * Number of rows affected by the statement.
      */
-    public function count()
+    public function count(): int
     {
         return $this->statement->rowCount();
     }
 
     /**
-     * Fetch all results
+     * @param callable|null $callable Called with each row's columns as arguments (PDO::FETCH_FUNC)
      *
-     * @param   callable $callable (optional) Callback function
-     * @param   int $fetchStyle (optional) PDO fetch style
-     *
-     * @return  array
+     * @return ($callable is null ? ($fetchStyle is 0 ? list<TRow> : array<mixed>) : list<mixed>)
      */
-    public function all($callable = null, $fetchStyle = 0)
+    public function all(?callable $callable = null, int $fetchStyle = 0): array
     {
         if ($callable === null) {
             return $this->statement->fetchAll($fetchStyle);
         }
+
         return $this->statement->fetchAll($fetchStyle | PDO::FETCH_FUNC, $callable);
     }
 
     /**
-     * @param   bool $uniq (optional)
-     * @param   callable $callable (optional)
+     * Fetches all rows grouped by the first column.
      *
-     * @return  array
+     * @return array<mixed>
      */
-    public function allGroup($uniq = false, $callable = null)
+    public function allGroup(bool $uniq = false, ?callable $callable = null): array
     {
         $fetchStyle = PDO::FETCH_GROUP | ($uniq ? PDO::FETCH_UNIQUE : 0);
+
         if ($callable === null) {
             return $this->statement->fetchAll($fetchStyle);
         }
+
         return $this->statement->fetchAll($fetchStyle | PDO::FETCH_FUNC, $callable);
     }
 
     /**
-     * Fetch first result
+     * Fetches the first row and closes the cursor; false when there are no rows.
      *
-     * @param   callable $callable (optional) Callback function
+     * @param callable|null $callable Called with the row's columns as arguments
      *
-     * @return  mixed
+     * @return ($callable is null ? TRow|false : mixed)
      */
-    public function first($callable = null)
+    public function first(?callable $callable = null): mixed
     {
-        if ($callable !== null) {
-            $result = $this->statement->fetch(PDO::FETCH_ASSOC);
-            $this->statement->closeCursor();
-            if (is_array($result)) {
-                $result = call_user_func_array($callable, $result);
-            }
-        } else {
+        if ($callable === null) {
             $result = $this->statement->fetch();
             $this->statement->closeCursor();
+
+            return $result;
         }
 
-        return $result;
+        $result = $this->statement->fetch(PDO::FETCH_ASSOC);
+        $this->statement->closeCursor();
+
+        return $result === false ? false : $callable(...$result);
     }
 
     /**
-     * Fetch next result
-     *
-     * @return  mixed
+     * @return TRow|false
      */
-    public function next()
+    public function next(): mixed
     {
         return $this->statement->fetch();
     }
 
-    /**
-     * Close current cursor
-     *
-     * @return  mixed
-     */
-    public function flush()
+    public function flush(): bool
     {
         return $this->statement->closeCursor();
     }
 
-    /**
-     * Return a column
-     *
-     * @param   int $col 0-indexed number of the column you wish to retrieve
-     *
-     * @return  mixed
-     */
-    public function column($col = 0)
+    public function column(int $col = 0): mixed
     {
         return $this->statement->fetchColumn($col);
     }
 
     /**
-     * Fetch each result as an associative array
-     *
-     * @return  $this
+     * @return self<array<string, mixed>>
      */
-    public function fetchAssoc()
+    public function fetchAssoc(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_ASSOC);
-        return $this;
+
+        /** @var self<array<string, mixed>> $result */
+        $result = $this->rebind();
+
+        return $result;
     }
 
     /**
-     * Fetch each result as an stdClass object
-     *
-     * @return  $this
+     * @return self<\stdClass>
      */
-    public function fetchObject()
+    public function fetchObject(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_OBJ);
-        return $this;
+
+        /** @var self<\stdClass> $result */
+        $result = $this->rebind();
+
+        return $result;
     }
 
     /**
-     * @return  $this
+     * @return self<array<string, mixed>>
      */
-    public function fetchNamed()
+    public function fetchNamed(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_NAMED);
-        return $this;
+
+        /** @var self<array<string, mixed>> $result */
+        $result = $this->rebind();
+
+        return $result;
     }
 
     /**
-     * @return  $this
+     * @return self<list<mixed>>
      */
-    public function fetchNum()
+    public function fetchNum(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_NUM);
-        return $this;
+
+        /** @var self<list<mixed>> $result */
+        $result = $this->rebind();
+
+        return $result;
     }
 
     /**
-     * @return  $this
+     * @return self<array<int|string, mixed>>
      */
-    public function fetchBoth()
+    public function fetchBoth(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_BOTH);
-        return $this;
+
+        /** @var self<array<int|string, mixed>> $result */
+        $result = $this->rebind();
+
+        return $result;
     }
 
     /**
-     * @return  $this
+     * @return self<mixed>
      */
-    public function fetchKeyPair()
+    public function fetchKeyPair(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_KEY_PAIR);
-        return $this;
+
+        /** @var self<mixed> $result */
+        $result = $this->rebind();
+
+        return $result;
     }
 
     /**
-     * @param   string $class
-     * @param   array $ctorargs (optional)
+     * @template TClass of object
      *
-     * @return  $this
+     * @param class-string<TClass> $class
+     * @param list<mixed> $ctorargs
+     *
+     * @return self<TClass>
      */
-    public function fetchClass($class, array $ctorargs = [])
+    public function fetchClass(string $class, array $ctorargs = []): self
     {
-        /** @noinspection PhpMethodParametersCountMismatchInspection */
         $this->statement->setFetchMode(PDO::FETCH_CLASS, $class, $ctorargs);
-        return $this;
+
+        /** @var self<TClass> $result */
+        $result = $this->rebind();
+
+        return $result;
     }
 
     /**
-     * @param   Closure $func
-     *
-     * @return  $this
+     * @param Closure(PDOStatement): mixed $func Configures the statement directly
      */
-    public function fetchCustom(Closure $func)
+    public function fetchCustom(Closure $func): static
     {
         $func($this->statement);
+
+        return $this;
+    }
+
+    /**
+     * Returns this instance untyped, so the fetch-mode setters can re-bind the row type.
+     */
+    private function rebind(): mixed
+    {
         return $this;
     }
 }

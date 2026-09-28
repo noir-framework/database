@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,267 +16,225 @@
  * limitations under the License.
  * ============================================================================ */
 
+declare(strict_types=1);
 namespace Noirapi\Database\SQL;
 
 use Closure;
+use Noirapi\Database\SQL\Clause\AggregateFunction;
+use Noirapi\Database\SQL\Clause\AggregateName;
+use Noirapi\Database\SQL\Clause\ColumnPart;
+use Noirapi\Database\SQL\Clause\ExpressionPart;
+use Noirapi\Database\SQL\Clause\FunctionName;
+use Noirapi\Database\SQL\Clause\GroupPart;
+use Noirapi\Database\SQL\Clause\OperatorPart;
+use Noirapi\Database\SQL\Clause\SqlFunction;
+use Noirapi\Database\SQL\Clause\SubqueryPart;
+use Noirapi\Database\SQL\Clause\ValuePart;
 
+use function array_map;
+use function count;
+use function is_array;
+
+/**
+ * A raw SQL expression assembled from columns, operators, values and functions.
+ *
+ * Any undefined property read appends that name as an operator, so
+ * `$expr->column('a')->{'+'}->value(1)` produces `"a" + ?`.
+ *
+ * @psalm-type ColumnArg = string|Expression|(Closure(Expression): mixed)
+ */
 class Expression
 {
-    /** @var    array */
-    protected $expressions = [];
+    /** @var list<ExpressionPart> */
+    protected array $expressions = [];
 
     /**
-     * Returns an array of expressions
-     *
-     * @return  array
+     * @param Closure(Expression): mixed $func
      */
-    public function getExpressions()
+    public static function fromClosure(Closure $func): self
+    {
+        $expression = new self();
+        $func($expression);
+
+        return $expression;
+    }
+
+    /**
+     * @return list<ExpressionPart>
+     */
+    public function getExpressions(): array
     {
         return $this->expressions;
     }
 
-    /**
-     * @param   string $type
-     * @param   mixed $value
-     *
-     * @return  $this
-     */
-    protected function addExpression(string $type, $value)
+    public function column(string|self $value): static
     {
-        $this->expressions[] = [
-            'type' => $type,
-            'value' => $value,
-        ];
+        return $this->addExpression(new ColumnPart($value));
+    }
+
+    public function op(string $value): static
+    {
+        return $this->addExpression(new OperatorPart($value));
+    }
+
+    public function value(mixed $value): static
+    {
+        return $this->addExpression(new ValuePart($value));
+    }
+
+    /**
+     * @param Closure(Expression): mixed $closure
+     */
+    public function group(Closure $closure): static
+    {
+        return $this->addExpression(new GroupPart(self::fromClosure($closure)));
+    }
+
+    /**
+     * @param string|array<int|string, string> $tables
+     */
+    public function from(string|array $tables): SelectStatement
+    {
+        $subquery = new Subquery();
+        $this->addExpression(new SubqueryPart($subquery));
+
+        return $subquery->from($tables);
+    }
+
+    /**
+     * @param ColumnArg|list<ColumnArg> $column
+     */
+    public function count(string|self|Closure|array $column = '*', bool $distinct = false): static
+    {
+        $columns = is_array($column) ? array_map(self::normalize(...), $column) : [self::normalize($column)];
+        if ($columns === []) {
+            $columns = ['*'];
+        }
+
+        return $this->addExpression(
+            new AggregateFunction(AggregateName::Count, $columns, $distinct || count($columns) > 1),
+        );
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function sum(string|self|Closure $column, bool $distinct = false): static
+    {
+        return $this->aggregate(AggregateName::Sum, $column, $distinct);
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function avg(string|self|Closure $column, bool $distinct = false): static
+    {
+        return $this->aggregate(AggregateName::Avg, $column, $distinct);
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function max(string|self|Closure $column, bool $distinct = false): static
+    {
+        return $this->aggregate(AggregateName::Max, $column, $distinct);
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function min(string|self|Closure $column, bool $distinct = false): static
+    {
+        return $this->aggregate(AggregateName::Min, $column, $distinct);
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function ucase(string|self|Closure $column): static
+    {
+        return $this->addExpression(new SqlFunction(FunctionName::Ucase, self::normalize($column)));
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function lcase(string|self|Closure $column): static
+    {
+        return $this->addExpression(new SqlFunction(FunctionName::Lcase, self::normalize($column)));
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function mid(string|self|Closure $column, int $start = 1, int $length = 0): static
+    {
+        return $this->addExpression(
+            new SqlFunction(FunctionName::Mid, self::normalize($column), start: $start, length: $length),
+        );
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function len(string|self|Closure $column): static
+    {
+        return $this->addExpression(new SqlFunction(FunctionName::Len, self::normalize($column)));
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function round(string|self|Closure $column, int $decimals = 0): static
+    {
+        return $this->addExpression(
+            new SqlFunction(FunctionName::Round, self::normalize($column), decimals: $decimals),
+        );
+    }
+
+    public function now(): static
+    {
+        return $this->addExpression(new SqlFunction(FunctionName::Now));
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function format(string|self|Closure $column, mixed $format): static
+    {
+        return $this->addExpression(
+            new SqlFunction(FunctionName::Format, self::normalize($column), format: $format),
+        );
+    }
+
+    /**
+     * Appends the property name as an operator, e.g. `$expr->{'*'}`.
+     */
+    public function __get(string $value): static
+    {
+        return $this->addExpression(new OperatorPart($value));
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    protected function aggregate(AggregateName $name, string|self|Closure $column, bool $distinct): static
+    {
+        return $this->addExpression(new AggregateFunction($name, [self::normalize($column)], $distinct));
+    }
+
+    protected function addExpression(ExpressionPart $part): static
+    {
+        $this->expressions[] = $part;
 
         return $this;
     }
 
     /**
-     * @param   string $type
-     * @param   string $name
-     * @param   Closure|string $column
-     * @param   array $arguments (optional)
-     *
-     * @return  $this
+     * @param ColumnArg $column
      */
-    protected function addFunction(string $type, string $name, $column, array $arguments = []): self
+    private static function normalize(string|self|Closure $column): string|self
     {
-        if ($column instanceof Closure) {
-            $column = Expression::fromClosure($column);
-        } elseif (is_array($column)) {
-            foreach ($column as &$c) {
-                if ($c instanceof Closure) {
-                    $c = Expression::fromClosure($c);
-                }
-            }
-        }
-
-        $func = array_merge(['type' => $type, 'name' => $name, 'column' => $column], $arguments);
-
-        return $this->addExpression('function', $func);
-    }
-
-    /**
-     * @param   mixed $value
-     *
-     * @return  $this
-     */
-    public function column($value): self
-    {
-        return $this->addExpression('column', $value);
-    }
-
-    /**
-     * @param   mixed $value
-     *
-     * @return  $this
-     */
-    public function op($value): self
-    {
-        return $this->addExpression('op', $value);
-    }
-
-    /**
-     * @param   mixed $value
-     * @return  $this
-     */
-    public function value($value): self
-    {
-        return $this->addExpression('value', $value);
-    }
-
-    /**
-     * @param   Closure $closure
-     *
-     * @return  $this
-     */
-    public function group(Closure $closure): self
-    {
-        $expression = new Expression();
-        $closure($expression);
-        return $this->addExpression('group', $expression);
-    }
-
-    /**
-     * @param   array|string $tables
-     *
-     * @return  SelectStatement
-     */
-    public function from($tables): SelectStatement
-    {
-        $subquery = new Subquery();
-        $this->addExpression('subquery', $subquery);
-        return $subquery->from($tables);
-    }
-
-    /**
-     * @param   string|array $column (optional)
-     * @param   bool $distinct (optional)
-     *
-     * @return  $this
-     */
-    public function count($column = '*', bool $distinct = false): self
-    {
-        if (!is_array($column)) {
-            $column = [$column];
-        }
-        $distinct = $distinct || (count($column) > 1);
-        return $this->addFunction('aggregateFunction', 'COUNT', $column, ['distinct' => $distinct]);
-    }
-
-    /**
-     * @param   string $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  $this
-     */
-    public function sum($column, bool $distinct = false): self
-    {
-        return $this->addFunction('aggregateFunction', 'SUM', $column, ['distinct' => $distinct]);
-    }
-
-    /**
-     * @param   string $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  $this
-     */
-    public function avg($column, bool $distinct = false): self
-    {
-        return $this->addFunction('aggregateFunction', 'AVG', $column, ['distinct' => $distinct]);
-    }
-
-    /**
-     * @param   string $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  $this
-     */
-    public function max($column, bool $distinct = false): self
-    {
-        return $this->addFunction('aggregateFunction', 'MAX', $column, ['distinct' => $distinct]);
-    }
-
-    /**
-     * @param   string $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  $this
-     */
-    public function min($column, bool $distinct = false): self
-    {
-        return $this->addFunction('aggregateFunction', 'MIN', $column, ['distinct' => $distinct]);
-    }
-
-    /**
-     * @param   string $column
-     *
-     * @return  $this
-     */
-    public function ucase($column): self
-    {
-        return $this->addFunction('sqlFunction', 'UCASE', $column);
-    }
-
-    /**
-     * @param   string $column
-     *
-     * @return  $this
-     */
-    public function lcase($column): self
-    {
-        return $this->addFunction('sqlFunction', 'LCASE', $column);
-    }
-
-    /**
-     * @param   string $column
-     * @param   int $start (optional)
-     * @param   int $length (optional)
-     *
-     * @return  $this
-     */
-    public function mid($column, int $start = 1, int $length = 0): self
-    {
-        return $this->addFunction('sqlFunction', 'MID', $column, ['start' => $start, 'length' => $length]);
-    }
-
-    /**
-     * @param   string $column
-     *
-     * @return  $this
-     */
-    public function len($column): self
-    {
-        return $this->addFunction('sqlFunction', 'LEN', $column);
-    }
-
-    /**
-     * @param   string $column
-     * @param   int $decimals (optional)
-     *
-     * @return  $this
-     */
-    public function round($column, int $decimals = 0): self
-    {
-        return $this->addFunction('sqlFunction', 'ROUND', $column, ['decimals' => $decimals]);
-    }
-
-    /**
-     * @return  $this
-     */
-    public function now(): self
-    {
-        return $this->addFunction('sqlFunction', 'NOW', '');
-    }
-
-    /**
-     * @param $column
-     * @param $format
-     * @return Expression
-     */
-    public function format($column, $format): self
-    {
-        return $this->addFunction('sqlFunction', 'FORMAT', $column, ['format' => $format]);
-    }
-
-    /**
-     * @param   mixed $value
-     *
-     * @return  $this
-     */
-    public function __get($value)
-    {
-        return $this->addExpression('op', $value);
-    }
-
-    /**
-     * @param Closure $func
-     * @return self
-     */
-    public static function fromClosure(Closure $func): self
-    {
-        $expression = new Expression();
-        $func($expression);
-        return $expression;
+        return $column instanceof Closure ? self::fromClosure($column) : $column;
     }
 }

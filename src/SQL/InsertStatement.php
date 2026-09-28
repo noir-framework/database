@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,40 +16,34 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
+/**
+ * Connection-less INSERT builder.
+ */
 class InsertStatement
 {
+    protected SQLStatement $sql;
 
-    /** @var  SQLStatement */
-    protected $sql;
-
-    /**
-     * InsertStatement constructor.
-     * @param SQLStatement|null $statement
-     */
     public function __construct(?SQLStatement $statement = null)
     {
-        if ($statement === null) {
-            $statement = new SQLStatement();
-        }
-        $this->sql = $statement;
+        $this->sql = $statement ?? new SQLStatement();
     }
 
-    /**
-     * @internal
-     * @return SQLStatement
-     */
+    public function __clone()
+    {
+        $this->sql = clone $this->sql;
+    }
+
     public function getSQLStatement(): SQLStatement
     {
         return $this->sql;
     }
 
     /**
-     * @param array $values
-     * @return InsertStatement
+     * @param array<string, mixed> $values column => value
      */
-    public function insert(array $values): self
+    public function insert(array $values): static
     {
         foreach ($values as $column => $value) {
             $this->sql->addColumn($column);
@@ -58,19 +53,10 @@ class InsertStatement
         return $this;
     }
 
-    /**
-     * @param   string $table
-     */
-    public function into(string $table)
+    public function into(string $table): mixed
     {
         $this->sql->addTables([$table]);
-    }
 
-    /**
-     * @inheritDoc
-     */
-    public function __clone()
-    {
-        $this->sql = clone $this->sql;
+        return null;
     }
 }

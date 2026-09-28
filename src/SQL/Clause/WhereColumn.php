@@ -17,28 +17,22 @@
  * ============================================================================ */
 
 declare(strict_types=1);
-namespace Noirapi\Database\SQL\Compiler;
 
-use Noirapi\Database\SQL\Clause\SqlFunction;
-use Noirapi\Database\SQL\Compiler;
-use Override;
+namespace Noirapi\Database\SQL\Clause;
 
-class MySQL extends Compiler
+use Noirapi\Database\SQL\Expression;
+
+/**
+ * column <operator> value
+ */
+final readonly class WhereColumn extends Condition
 {
-    protected string $wrapper = '`%s`';
-
-    /**
-     * Kept from opis/database for output compatibility: MySQL's ROUND() is emitted as FORMAT().
-     */
-    #[Override]
-    protected function sqlFunctionROUND(SqlFunction $func): string
-    {
-        return 'FORMAT(' . $this->wrap($func->column) . ', ' . $this->param($func->decimals) . ')';
-    }
-
-    #[Override]
-    protected function sqlFunctionLEN(SqlFunction $func): string
-    {
-        return 'LENGTH(' . $this->wrap($func->column) . ')';
+    public function __construct(
+        public string|Expression $column,
+        public mixed $value,
+        public string $operator,
+        string $separator,
+    ) {
+        parent::__construct($separator);
     }
 }

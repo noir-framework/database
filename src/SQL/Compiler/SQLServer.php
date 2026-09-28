@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,25 +16,26 @@
  * limitations under the License.
  * ============================================================================ */
 
+declare(strict_types=1);
 namespace Noirapi\Database\SQL\Compiler;
 
 use Noirapi\Database\SQL\Compiler;
 use Noirapi\Database\SQL\SQLStatement;
+use Override;
+
+use function array_values;
+use function trim;
 
 class SQLServer extends Compiler
 {
-    /** @var string Date format. */
-    protected $dateFormat = 'Y-m-d H:i:s.0000000';
+    protected string $dateFormat = 'Y-m-d H:i:s.0000000';
 
-    /** @var string Wrapper used to escape table and column names. */
-    protected $wrapper = '[%s]';
+    protected string $wrapper = '[%s]';
 
     /**
-     * Compiles a SELECT query
-     *
-     * @param SQLStatement $select
-     * @return string
+     * Emulates LIMIT with TOP, and LIMIT + OFFSET with ROW_NUMBER().
      */
+    #[Override]
     public function select(SQLStatement $select): string
     {
         $limit = $select->getLimit();
@@ -62,7 +64,7 @@ class SQLServer extends Compiler
 
         $order = trim($this->handleOrderings($select->getOrder()));
 
-        if (empty($order)) {
+        if ($order === '') {
             $order = 'ORDER BY (SELECT 0)';
         }
 
@@ -82,11 +84,7 @@ class SQLServer extends Compiler
         return 'SELECT * FROM (' . $sql . ') AS m1 WHERE opis_rownum BETWEEN ' . $offset . ' AND ' . $limit;
     }
 
-    /**
-     * @param   SQLStatement $update
-     *
-     * @return  string
-     */
+    #[Override]
     public function update(SQLStatement $update): string
     {
         $joins = $this->handleJoins($update->getJoins());
@@ -99,7 +97,7 @@ class SQLServer extends Compiler
 
         $sql = 'UPDATE ';
         $sql .= $this->handleTables($tables);
-        $sql .= $this->handleSetColumns($update->getColumns());
+        $sql .= $this->handleSetColumns($update->getUpdateColumns());
         $sql .= $joins;
         $sql .= $this->handleWheres($update->getWheres());
 

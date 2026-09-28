@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,32 +16,31 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
+use function is_array;
+
+/**
+ * Connection-less UPDATE builder.
+ */
 class UpdateStatement extends BaseStatement
 {
     /**
-     * UpdateStatement constructor.
-     * @param string|array $table
-     * @param SQLStatement|null $statement
+     * @param string|array<int|string, string|Expression> $table
      */
-    public function __construct($table, ?SQLStatement $statement = null)
+    public function __construct(string|array $table, ?SQLStatement $statement = null)
     {
-        if (!is_array($table)) {
-            $table = [$table];
-        }
-
         parent::__construct($statement);
-
-        $this->sql->addTables($table);
+        $this->sql->addTables(is_array($table) ? $table : [$table]);
     }
 
     /**
-     * @param   array $columns
+     * @param array<string, mixed> $columns column => value (closures build expressions)
      */
-    public function set(array $columns)
+    public function set(array $columns): mixed
     {
         $this->sql->addUpdateColumns($columns);
-    }
 
+        return null;
+    }
 }

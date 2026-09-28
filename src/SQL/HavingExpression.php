@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,109 +16,66 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
 use Closure;
 
+/**
+ * Picks the aggregate applied to a HAVING column: `->count()`, `->sum()`, ...
+ */
 class HavingExpression
 {
-    /** @var  SQLStatement */
-    protected $sql;
+    protected Having $having;
 
-    /** @var    Having */
-    protected $having;
+    protected string|Expression $column = '';
 
-    /** @var    string|Expression */
-    protected $column;
+    protected string $separator = 'AND';
 
-    /** @var    string */
-    protected $separator;
-
-    /**
-     * AggregateExpression constructor.
-     * @param SQLStatement $statement
-     */
-    public function __construct(SQLStatement $statement)
+    public function __construct(protected SQLStatement $sql)
     {
-        $this->sql = $statement;
-        $this->having = new Having($statement);
+        $this->having = new Having($sql);
     }
 
-
-    /**
-     * @param string $column
-     * @param string $separator
-     * @return HavingExpression
-     */
-    public function init($column, string $separator): self
-    {
-        if ($column instanceof Closure) {
-            $column = Expression::fromClosure($column);
-        }
-        $this->column = $column;
-        $this->separator = $separator;
-        return $this;
-    }
-
-    /**
-     * @param bool $distinct
-     * @return Having
-     */
-    public function count(bool $distinct = false): Having
-    {
-        $value = (new Expression())->count($this->column, $distinct);
-        return $this->having->init($value, $this->separator);
-    }
-
-    /**
-     * @param bool $distinct
-     * @return Having
-     */
-    public function avg(bool $distinct = false): Having
-    {
-        $value = (new Expression())->avg($this->column, $distinct);
-        return $this->having->init($value, $this->separator);
-    }
-
-    /**
-     * @param bool $distinct
-     * @return Having
-     */
-    public function sum(bool $distinct = false): Having
-    {
-        $value = (new Expression())->sum($this->column, $distinct);
-        return $this->having->init($value, $this->separator);
-    }
-
-    /**
-     * @param bool $distinct
-     * @return Having
-     */
-    public function min(bool $distinct = false): Having
-    {
-        $value = (new Expression())->min($this->column, $distinct);
-        return $this->having->init($value, $this->separator);
-    }
-
-    /**
-     * @param bool $distinct
-     * @return Having
-     */
-    public function max(bool $distinct = false): Having
-    {
-        $value = (new Expression())->max($this->column, $distinct);
-        return $this->having->init($value, $this->separator);
-    }
-
-    /**
-     * @inheritDoc
-     */
     public function __clone()
     {
         if ($this->column instanceof Expression) {
             $this->column = clone $this->column;
         }
+
         $this->sql = clone $this->sql;
         $this->having = new Having($this->sql);
+    }
+
+    public function init(string|Expression|Closure $column, string $separator): static
+    {
+        $this->column = $column instanceof Closure ? Expression::fromClosure($column) : $column;
+        $this->separator = $separator;
+
+        return $this;
+    }
+
+    public function count(bool $distinct = false): Having
+    {
+        return $this->having->init((new Expression())->count($this->column, $distinct), $this->separator);
+    }
+
+    public function avg(bool $distinct = false): Having
+    {
+        return $this->having->init((new Expression())->avg($this->column, $distinct), $this->separator);
+    }
+
+    public function sum(bool $distinct = false): Having
+    {
+        return $this->having->init((new Expression())->sum($this->column, $distinct), $this->separator);
+    }
+
+    public function min(bool $distinct = false): Having
+    {
+        return $this->having->init((new Expression())->min($this->column, $distinct), $this->separator);
+    }
+
+    public function max(bool $distinct = false): Having
+    {
+        return $this->having->init((new Expression())->max($this->column, $distinct), $this->separator);
     }
 }

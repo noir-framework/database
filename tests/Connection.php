@@ -17,34 +17,44 @@
 
 namespace Noirapi\Database\Test;
 
+use Noirapi\Database\ResultSet;
+use PDO;
+
 class Connection extends \Noirapi\Database\Connection
 {
     private string $lastSql = '';
 
     public function __construct(string $driver)
     {
-        parent::__construct('');
-        $this->driver = $driver;
+        parent::__construct('', driver: $driver);
     }
 
-    public function query(string $sql, array $params = [])
+    public function query(string $sql, array $params = []): ResultSet
     {
-        return $this->record($sql, $params);
+        $this->record($sql, $params);
+
+        return new ResultSet((new PDO('sqlite::memory:'))->query('SELECT 1'));
     }
 
-    public function column(string $sql, array $params = [])
+    public function column(string $sql, array $params = []): mixed
     {
-        return $this->record($sql, $params);
+        $this->record($sql, $params);
+
+        return null;
     }
 
-    public function count(string $sql, array $params = [])
+    public function count(string $sql, array $params = []): int
     {
-        return $this->record($sql, $params);
+        $this->record($sql, $params);
+
+        return 0;
     }
 
-    public function command(string $sql, array $params = [])
+    public function command(string $sql, array $params = []): bool
     {
-        return $this->record($sql, $params);
+        $this->record($sql, $params);
+
+        return true;
     }
 
     public function lastSql(): string
@@ -52,8 +62,8 @@ class Connection extends \Noirapi\Database\Connection
         return $this->lastSql;
     }
 
-    private function record(string $sql, array $params): string
+    private function record(string $sql, array $params): void
     {
-        return $this->lastSql = $this->replaceParams($sql, $params);
+        $this->lastSql = $this->replaceParams($sql, $params);
     }
 }

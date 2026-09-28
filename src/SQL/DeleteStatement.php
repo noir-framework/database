@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,37 +16,31 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
+use function is_array;
+
+/**
+ * Connection-less DELETE builder.
+ */
 class DeleteStatement extends BaseStatement
 {
-
     /**
-     * DeleteStatement constructor.
-     * @param string|array $from
-     * @param SQLStatement|null $statement
+     * @param string|array<int|string, string|Expression> $from
      */
-    public function __construct($from, ?SQLStatement $statement = null)
+    public function __construct(string|array $from, ?SQLStatement $statement = null)
     {
         parent::__construct($statement);
-
-        if (!is_array($from)) {
-            $from = [$from];
-        }
-
-        $this->sql->setFrom($from);
+        $this->sql->setFrom(is_array($from) ? $from : [$from]);
     }
 
     /**
-     * Delete records
-     *
-     * @param   string|array $tables
+     * @param string|array<int|string, string|Expression> $tables
      */
-    public function delete($tables = [])
+    public function delete(string|array $tables = []): mixed
     {
-        if (!is_array($tables)) {
-            $tables = [$tables];
-        }
-        $this->sql->addTables($tables);
+        $this->sql->addTables(is_array($tables) ? $tables : [$tables]);
+
+        return null;
     }
 }

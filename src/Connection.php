@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,173 +16,158 @@
  * limitations under the License.
  * ============================================================================ */
 
+declare(strict_types=1);
 namespace Noirapi\Database;
 
 use PDO;
-use PDOStatement;
 use PDOException;
+use PDOStatement;
 use RuntimeException;
-use Serializable;
 
-class Connection implements Serializable
+use function array_key_last;
+use function array_shift;
+use function get_debug_type;
+use function in_array;
+use function is_bool;
+use function is_float;
+use function is_int;
+use function is_object;
+use function is_string;
+use function microtime;
+use function preg_replace_callback;
+
+/**
+ * Lazily connected PDO wrapper that picks the SQL and schema compilers for its driver.
+ *
+ * @psalm-type Prepared = array{query: string, params: list<mixed>, statement: PDOStatement}
+ * @psalm-type LogEntry = array{query: string, time?: float}
+ *
+ * @phpstan-consistent-constructor
+ * @psalm-consistent-constructor
+ */
+class Connection
 {
-    /** @var    string  Username */
-    protected $username;
+    /** Driver names whose dialects were removed in 5.0. */
+    private const array REMOVED_DRIVERS = ['oci', 'oracle', 'firebird', 'db2', 'ibm', 'odbc', 'nuodb'];
 
-    /** @var    string  Password */
-    protected $password;
+    protected bool $logQueries = false;
 
-    /** @var    bool    Log queries flag */
-    protected $logQueries = false;
+    /** @var list<LogEntry> */
+    protected array $log = [];
 
-    /** @var    array   Logged queries */
-    protected $log = [];
+    /** @var list<array{sql: string, params: list<mixed>}> */
+    protected array $commands = [];
 
-    /** @var    array   Init commands */
-    protected $commands = [];
-
-    /** @var    array   PDO connection options */
-    protected $options = [
+    /** @var array<int, mixed> */
+    protected array $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ,
         PDO::ATTR_STRINGIFY_FETCHES => false,
         PDO::ATTR_EMULATE_PREPARES => false,
     ];
 
-    /** @var    \PDO    The PDO object associated with this connection */
-    protected $pdo;
+    protected ?SQL\Compiler $compiler = null;
 
-    /** @var    SQL\Compiler The compiler associated with this connection */
-    protected $compiler;
+    protected ?Schema\Compiler $schemaCompiler = null;
 
-    /** @var    Schema\Compiler The schema compiler associated with this connection */
-    protected $schemaCompiler;
+    protected ?Schema $schema = null;
 
-    /** @var    string  The DSN for this connection */
-    protected $dsn;
+    /** @var array<string, string> */
+    protected array $compilerOptions = [];
 
-    /** @var    string  Driver's name */
-    protected $driver;
+    /** @var array<string, string> */
+    protected array $schemaCompilerOptions = [];
 
-    /** @var    Schema   Schema instance */
-    protected $schema;
+    protected bool $throwTransactionExceptions = false;
 
-    /** @var    array  Compiler options */
-    protected $compilerOptions = [];
-
-    /** @var    array   Schema compiler options */
-    protected $schemaCompilerOptions = [];
-
-    /** @var bool */
-    protected $throwTransactionExceptions = false;
-
-    /**
-     * Constructor
-     *
-     * @param   string $dsn The DSN string
-     * @param   string $username (optional) Username
-     * @param   string $password (optional) Password
-     * @param   string $driver (optional) Driver's name
-     * @param   PDO $pdo (optional) PDO object
-     */
     public function __construct(
-        ?string $dsn = null,
-        ?string $username = null,
-        ?string $password = null,
-        ?string $driver = null,
-        ?PDO $pdo = null
+        protected ?string $dsn = null,
+        protected ?string $username = null,
+        protected ?string $password = null,
+        protected ?string $driver = null,
+        protected ?PDO $pdo = null,
     ) {
-        $this->dsn = $dsn;
-        $this->username = $username;
-        $this->password = $password;
-        $this->driver = $driver;
-        $this->pdo = $pdo;
     }
 
-    /**
-     * @param PDO $pdo
-     * @return Connection
-     */
-    public static function fromPDO(PDO $pdo): self
+    public static function fromPDO(PDO $pdo): static
     {
         return new static(null, null, null, null, $pdo);
     }
 
     /**
-     * Enable or disable query logging
-     *
-     * @param   bool $value (optional) Value
-     *
-     * @return  Connection
+     * @return array{username: ?string, password: ?string, logQueries: bool, options: array<int, mixed>,
+     *     commands: list<array{sql: string, params: list<mixed>}>, dsn: ?string}
      */
-    public function logQueries(bool $value = true): self
+    public function __serialize(): array
+    {
+        return [
+            'username' => $this->username,
+            'password' => $this->password,
+            'logQueries' => $this->logQueries,
+            'options' => $this->options,
+            'commands' => $this->commands,
+            'dsn' => $this->dsn,
+        ];
+    }
+
+    /**
+     * @param array{username: ?string, password: ?string, logQueries: bool, options: array<int, mixed>,
+     *     commands: list<array{sql: string, params: list<mixed>}>, dsn: ?string} $data
+     */
+    public function __unserialize(array $data): void
+    {
+        $this->username = $data['username'];
+        $this->password = $data['password'];
+        $this->logQueries = $data['logQueries'];
+        $this->options = $data['options'];
+        $this->commands = $data['commands'];
+        $this->dsn = $data['dsn'];
+    }
+
+    public function logQueries(bool $value = true): static
     {
         $this->logQueries = $value;
+
         return $this;
     }
 
-    /**
-     * @param bool $value
-     * @return Connection
-     */
-    public function throwTransactionExceptions(bool $value = true): self
+    public function throwTransactionExceptions(bool $value = true): static
     {
         $this->throwTransactionExceptions = $value;
+
         return $this;
     }
 
     /**
-     * Add an init command
+     * Adds a command executed right after connecting (e.g. SET NAMES).
      *
-     * @param   string $query SQL command
-     * @param   array $params (optional) Params
-     *
-     * @return  Connection
+     * @param list<mixed> $params
      */
-    public function initCommand(string $query, array $params = []): self
+    public function initCommand(string $query, array $params = []): static
     {
-        $this->commands[] = [
-            'sql' => $query,
-            'params' => $params,
-        ];
+        $this->commands[] = ['sql' => $query, 'params' => $params];
 
         return $this;
     }
 
-    /**
-     * Set the username
-     *
-     * @param   string $username Username
-     *
-     * @return  Connection
-     */
-    public function username(string $username): self
+    public function username(string $username): static
     {
         $this->username = $username;
+
         return $this;
     }
 
-    /**
-     * Set the password
-     *
-     * @param   string $password Password
-     *
-     * @return  Connection
-     */
-    public function password(string $password): self
+    public function password(string $password): static
     {
         $this->password = $password;
+
         return $this;
     }
 
     /**
-     * Set PDO connection options
-     *
-     * @param   array $options PDO options
-     *
-     * @return  Connection
+     * @param array<int, mixed> $options PDO attribute => value
      */
-    public function options(array $options): self
+    public function options(array $options): static
     {
         foreach ($options as $name => $value) {
             $this->option($name, $value);
@@ -190,107 +176,60 @@ class Connection implements Serializable
         return $this;
     }
 
-    /**
-     * Set a PDO connection option
-     *
-     * @param  mixed $name
-     * @param  mixed $value
-     *
-     * @return  Connection
-     */
-    public function option($name, $value): self
+    public function option(int $name, mixed $value): static
     {
         $this->options[$name] = $value;
+
         return $this;
     }
 
-    /**
-     * Use persistent connections
-     *
-     * @param   bool $value (optional) Value
-     *
-     * @return  Connection
-     */
-    public function persistent(bool $value = true): self
+    public function persistent(bool $value = true): static
     {
         return $this->option(PDO::ATTR_PERSISTENT, $value);
     }
 
-    /**
-     * Set date format
-     *
-     * @param   string $format Date format
-     *
-     * @return  Connection
-     */
-    public function setDateFormat(string $format): self
+    public function setDateFormat(string $format): static
     {
         $this->compilerOptions['dateFormat'] = $format;
+
         return $this;
     }
 
-    /**
-     * Set identifier wrapper
-     *
-     * @param   string $wrapper Identifier wrapper
-     *
-     * @return  Connection
-     */
-    public function setWrapperFormat(string $wrapper): self
+    public function setWrapperFormat(string $wrapper): static
     {
         $this->compilerOptions['wrapper'] = $wrapper;
         $this->schemaCompilerOptions['wrapper'] = $wrapper;
+
         return $this;
     }
 
-    /**
-     * Returns the DSN associated with this connection
-     *
-     * @return  string
-     */
-    public function getDSN()
+    public function getDSN(): ?string
     {
         return $this->dsn;
     }
 
-    /**
-     * Returns the driver's name
-     *
-     * @return  string
-     */
-    public function getDriver()
+    public function getDriver(): string
     {
         if ($this->driver === null) {
-            $this->driver = $this->getPDO()->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $driver = $this->getPDO()->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $this->driver = is_string($driver) ? $driver : '';
         }
 
         return $this->driver;
     }
 
-    /**
-     * Returns the schema associated with this connection
-     *
-     * @return  Schema
-     */
     public function getSchema(): Schema
     {
-        if ($this->schema === null) {
-            $this->schema = new Schema($this);
-        }
-
-        return $this->schema;
+        return $this->schema ??= new Schema($this);
     }
 
     /**
-     * Returns the PDO object associated with this connection
-     *
-     * @return PDO
+     * @throws PDOException When connecting fails
      */
     public function getPDO(): PDO
     {
-        if ($this->pdo == null) {
-            $this->pdo = new PDO($this->getDSN(), $this->username, $this->password, $this->options);
-
+        if ($this->pdo === null) {
+            $this->pdo = new PDO((string) $this->dsn, $this->username, $this->password, $this->options);
             foreach ($this->commands as $command) {
                 $this->command($command['sql'], $command['params']);
             }
@@ -299,12 +238,7 @@ class Connection implements Serializable
         return $this->pdo;
     }
 
-    /** Driver names whose dialects were removed in 5.0. */
-    private const array REMOVED_DRIVERS = ['oci', 'oracle', 'firebird', 'db2', 'ibm', 'odbc', 'nuodb'];
-
     /**
-     * Returns an instance of the compiler associated with this connection
-     *
      * @throws RuntimeException When the driver's dialect is no longer supported
      */
     public function getCompiler(): SQL\Compiler
@@ -324,8 +258,6 @@ class Connection implements Serializable
     }
 
     /**
-     * Returns an instance of the schema compiler associated with this connection
-     *
      * @throws RuntimeException When the driver has no schema compiler
      */
     public function schemaCompiler(): Schema\Compiler
@@ -347,27 +279,15 @@ class Connection implements Serializable
     }
 
     /**
-     * @throws RuntimeException
+     * Closes the connection by dropping the PDO instance.
      */
-    private function assertDriverSupported(string $driver): void
-    {
-        if (in_array($driver, self::REMOVED_DRIVERS, true)) {
-            throw new RuntimeException('Driver "' . $driver . '" is not supported since noirapi/database 5.0');
-        }
-    }
-
-    /**
-     * Close the current connection by destroying the associated PDO object
-     */
-    public function disconnect()
+    public function disconnect(): void
     {
         $this->pdo = null;
     }
 
     /**
-     * Returns the query log for this database.
-     *
-     * @return  array
+     * @return list<LogEntry>
      */
     public function getLog(): array
     {
@@ -375,83 +295,80 @@ class Connection implements Serializable
     }
 
     /**
-     * Execute a query
+     * @param list<mixed> $params
      *
-     * @param   string $sql SQL Query
-     * @param   array $params (optional) Query params
+     * @return ResultSet<mixed>
      *
-     * @return  ResultSet
+     * @throws PDOException
      */
-    public function query(string $sql, array $params = [])
+    public function query(string $sql, array $params = []): ResultSet
     {
         $prepared = $this->prepare($sql, $params);
         $this->execute($prepared);
+
         return new ResultSet($prepared['statement']);
     }
 
     /**
-     * Execute a non-query SQL command
+     * @param list<mixed> $params
      *
-     * @param   string $sql SQL Command
-     * @param   array $params (optional) Command params
-     *
-     * @return  mixed   Command result
+     * @throws PDOException
      */
-    public function command(string $sql, array $params = [])
+    public function command(string $sql, array $params = []): bool
     {
         return $this->execute($this->prepare($sql, $params));
     }
 
     /**
-     * Execute a query and return the number of affected rows
+     * Executes the statement and returns the affected row count.
      *
-     * @param   string $sql SQL Query
-     * @param   array $params (optional) Query params
+     * @param list<mixed> $params
      *
-     * @return  int
+     * @throws PDOException
      */
-    public function count(string $sql, array $params = [])
+    public function count(string $sql, array $params = []): int
     {
         $prepared = $this->prepare($sql, $params);
         $this->execute($prepared);
         $result = $prepared['statement']->rowCount();
         $prepared['statement']->closeCursor();
+
         return $result;
     }
 
     /**
-     * Execute a query and fetch the first column
+     * Executes the statement and returns the first column of the first row (false when empty).
      *
-     * @param   string $sql SQL Query
-     * @param   array $params (optional) Query params
+     * @param list<mixed> $params
      *
-     * @return  mixed
+     * @throws PDOException
      */
-    public function column(string $sql, array $params = [])
+    public function column(string $sql, array $params = []): mixed
     {
         $prepared = $this->prepare($sql, $params);
         $this->execute($prepared);
         $result = $prepared['statement']->fetchColumn();
         $prepared['statement']->closeCursor();
+
         return $result;
     }
 
-
     /**
-     * Transaction
+     * Runs the callback inside a transaction (or directly when one is already open).
      *
-     * @param callable $callback
-     * @param mixed|null $that
-     * @param mixed|null $default
-     * @return mixed|null
-     * @throws PDOException
+     * @template TResult
+     * @template TDefault
+     *
+     * @param callable(mixed): TResult $callback
+     * @param TDefault $default Returned when the transaction fails and exceptions are not rethrown
+     *
+     * @return TResult|TDefault
+     *
+     * @throws PDOException When throwTransactionExceptions() is enabled
      */
-    public function transaction(callable $callback, $that = null, $default = null)
+    public function transaction(callable $callback, mixed $that = null, mixed $default = null): mixed
     {
-        if ($that === null) {
-            $that = $this;
-        }
-
+        $that ??= $this;
         $pdo = $this->getPDO();
 
         if ($pdo->inTransaction()) {
@@ -475,159 +392,107 @@ class Connection implements Serializable
     }
 
     /**
-     * Replace placeholders with parameters.
+     * Inlines the parameters into the query, for logging and error messages only.
      *
-     * @param   string $query SQL query
-     * @param   array $params Query parameters
-     *
-     * @return  string
+     * @param list<mixed> $params
      */
     protected function replaceParams(string $query, array $params): string
     {
         $compiler = $this->getCompiler();
 
-        return preg_replace_callback('/\?/', function () use (&$params, $compiler) {
+        return preg_replace_callback('/\?/', static function () use (&$params, $compiler): string {
             $param = array_shift($params);
-            $param = is_object($param) ? get_class($param) : $param;
 
-            if (is_int($param) || is_float($param)) {
-                return $param;
-            } elseif ($param === null) {
-                return 'NULL';
-            } elseif (is_bool($param)) {
-                return $param ? 'TRUE' : 'FALSE';
-            } else {
-                return $compiler->quote($param);
-            }
-        }, $query);
+            return match (true) {
+                is_object($param) => $compiler->quote($param::class),
+                is_int($param), is_float($param) => (string) $param,
+                $param === null => 'NULL',
+                is_bool($param) => $param ? 'TRUE' : 'FALSE',
+                is_string($param) => $compiler->quote($param),
+                default => $compiler->quote(get_debug_type($param)),
+            };
+        }, $query) ?? $query;
     }
 
     /**
-     * Prepares a query.
+     * @param list<mixed> $params
      *
-     * @param   string $query SQL query
-     * @param   array $params Query parameters
+     * @return Prepared
      *
-     * @return  array
+     * @throws PDOException
      */
     protected function prepare(string $query, array $params): array
     {
         try {
             $statement = $this->getPDO()->prepare($query);
         } catch (PDOException $e) {
-            throw new PDOException($e->getMessage() . ' [ ' . $this->replaceParams($query, $params) . ' ] ',
-                (int)$e->getCode(), $e->getPrevious());
+            throw new PDOException(
+                $e->getMessage() . ' [ ' . $this->replaceParams($query, $params) . ' ] ',
+                (int) $e->getCode(),
+                $e->getPrevious(),
+            );
         }
 
         return ['query' => $query, 'params' => $params, 'statement' => $statement];
     }
 
     /**
-     * Executes a prepared query and returns TRUE on success or FALSE on failure.
+     * @param Prepared $prepared
      *
-     * @param   array $prepared Prepared query
-     *
-     * @return  boolean
+     * @throws PDOException
      */
-    protected function execute(array $prepared)
+    protected function execute(array $prepared): bool
     {
+        $start = microtime(true);
+        $logIndex = null;
         if ($this->logQueries) {
-            $start = microtime(true);
-            $log = [
-                'query' => $this->replaceParams($prepared['query'], $prepared['params']),
-            ];
-            $this->log[] = &$log;
+            $this->log[] = ['query' => $this->replaceParams($prepared['query'], $prepared['params'])];
+            $logIndex = array_key_last($this->log);
         }
 
         try {
-            if ($prepared['params']) {
+            if ($prepared['params'] !== []) {
                 $this->bindValues($prepared['statement'], $prepared['params']);
             }
             $result = $prepared['statement']->execute();
         } catch (PDOException $e) {
-            throw new PDOException($e->getMessage() . ' [ ' . $this->replaceParams($prepared['query'],
-                    $prepared['params']) . ' ] ', (int)$e->getCode(), $e->getPrevious());
+            throw new PDOException(
+                $e->getMessage() . ' [ ' . $this->replaceParams($prepared['query'], $prepared['params']) . ' ] ',
+                (int) $e->getCode(),
+                $e->getPrevious(),
+            );
         }
 
-        if ($this->logQueries) {
-            /** @noinspection PhpUndefinedVariableInspection */
-            $log['time'] = microtime(true) - $start;
+        if ($logIndex !== null) {
+            $this->log[$logIndex]['time'] = microtime(true) - $start;
         }
 
         return $result;
     }
 
     /**
-     * @param PDOStatement $statement
-     * @param array $values
+     * @param list<mixed> $values
      */
-    protected function bindValues(PDOStatement $statement, array $values)
+    protected function bindValues(PDOStatement $statement, array $values): void
     {
         foreach ($values as $key => $value) {
-            $param = PDO::PARAM_STR;
-
-            if (is_null($value)) {
-                $param = PDO::PARAM_NULL;
-            } elseif (is_integer($value)) {
-                $param = PDO::PARAM_INT;
-            } elseif (is_bool($value)) {
-                $param = PDO::PARAM_BOOL;
-            }
-
-            $statement->bindValue($key + 1, $value, $param);
+            $type = match (true) {
+                $value === null => PDO::PARAM_NULL,
+                is_int($value) => PDO::PARAM_INT,
+                is_bool($value) => PDO::PARAM_BOOL,
+                default => PDO::PARAM_STR,
+            };
+            $statement->bindValue($key + 1, $value, $type);
         }
     }
 
     /**
-     * Implementation of Serializable::serialize
-     *
-     * @return  string
+     * @throws RuntimeException
      */
-    public function serialize()
+    private function assertDriverSupported(string $driver): void
     {
-        return serialize([
-            'username' => $this->username,
-            'password' => $this->password,
-            'logQueries' => $this->logQueries,
-            'options' => $this->options,
-            'commands' => $this->commands,
-            'dsn' => $this->dsn,
-        ]);
-    }
-
-    /**
-     * Implementation of Serializable::unserialize
-     *
-     * @param   string $data Serialized data
-     */
-    public function unserialize($data)
-    {
-        $object = unserialize($data);
-
-        foreach ($object as $key => $value) {
-            $this->{$key} = $value;
+        if (in_array($driver, self::REMOVED_DRIVERS, true)) {
+            throw new RuntimeException('Driver "' . $driver . '" is not supported since noirapi/database 5.0');
         }
-    }
-
-    public function __serialize()
-    {
-        return [
-            'username' => $this->username,
-            'password' => $this->password,
-            'logQueries' => $this->logQueries,
-            'options' => $this->options,
-            'commands' => $this->commands,
-            'dsn' => $this->dsn,
-        ];
-    }
-
-    public function __unserialize(array $data)
-    {
-        $this->username = $data['username'];
-        $this->password = $data['password'];
-        $this->logQueries = $data['logQueries'];
-        $this->options = $data['options'];
-        $this->commands = $data['commands'];
-        $this->dsn = $data['dsn'];
     }
 }

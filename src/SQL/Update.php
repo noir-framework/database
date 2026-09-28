@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,88 +16,79 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
 use Noirapi\Database\Connection;
+use InvalidArgumentException;
+use Override;
 
+use function is_array;
+use function is_int;
+use function is_string;
+
+/**
+ * UPDATE bound to a connection; `set()`, `increment()` and `decrement()` run it.
+ */
 class Update extends UpdateStatement
 {
-    /** @var    Connection */
-    protected $connection;
-
     /**
-     * Update constructor.
-     * @param Connection $connection
-     * @param string|array $table
-     * @param SQLStatement|null $statement
+     * @param string|array<int|string, string|Expression> $table
      */
-    public function __construct(Connection $connection, $table, ?SQLStatement $statement = null)
+    public function __construct(protected Connection $connection, string|array $table, ?SQLStatement $statement = null)
     {
         parent::__construct($table, $statement);
-        $this->connection = $connection;
     }
 
     /**
-     * @param   string $sign
-     * @param   string|array $columns
-     * @param   int $value
-     *
-     * @return  int
+     * @param string|array<int|string, mixed> $column a column, a list of columns, or column => amount
      */
-    protected function incrementOrDecrement(string $sign, $columns, $value)
+    public function increment(string|array $column, int|float $value = 1): int
+    {
+        return $this->incrementOrDecrement('+', $column, $value);
+    }
+
+    /**
+     * @param string|array<int|string, mixed> $column a column, a list of columns, or column => amount
+     */
+    public function decrement(string|array $column, int|float $value = 1): int
+    {
+        return $this->incrementOrDecrement('-', $column, $value);
+    }
+
+    /**
+     * Runs the update and returns the affected row count.
+     *
+     * @param array<string, mixed> $columns column => value (closures build expressions)
+     */
+    #[Override]
+    public function set(array $columns): int
+    {
+        parent::set($columns);
+        $compiler = $this->connection->getCompiler();
+
+        return $this->connection->count($compiler->update($this->sql), $compiler->getParams());
+    }
+
+    /**
+     * @param string|array<int|string, mixed> $columns
+     */
+    protected function incrementOrDecrement(string $sign, string|array $columns, int|float $value): int
     {
         if (!is_array($columns)) {
             $columns = [$columns];
         }
 
         $values = [];
-
-        foreach ($columns as $k => $v) {
-            if (is_numeric($k)) {
-                $values[$v] = function (Expression $expr) use ($sign, $v, $value) {
-                    $expr->column($v)->{$sign}->value($value);
-                };
-            } else {
-                $values[$k] = function (Expression $expr) use ($sign, $k, $v) {
-                    $expr->column($k)->{$sign}->value($v);
-                };
+        foreach ($columns as $key => $amount) {
+            if (is_int($key)) {
+                if (!is_string($amount)) {
+                    throw new InvalidArgumentException('Column names to increment/decrement must be strings');
+                }
+                [$key, $amount] = [$amount, $value];
             }
+            $values[$key] = (new Expression())->column($key)->op($sign)->value($amount);
         }
 
         return $this->set($values);
-    }
-
-    /**
-     * @param   string|array $column
-     * @param   int $value (optional)
-     *
-     * @return  int
-     */
-    public function increment($column, $value = 1)
-    {
-        return $this->incrementOrDecrement('+', $column, $value);
-    }
-
-    /**
-     * @param   string|array $column
-     * @param   int $value (optional)
-     *
-     * @return  int
-     */
-    public function decrement($column, $value = 1)
-    {
-        return $this->incrementOrDecrement('-', $column, $value);
-    }
-
-    /**
-     * @param   array $columns
-     *
-     * @return  int
-     */
-    public function set(array $columns)
-    {
-        parent::set($columns);
-        $compiler = $this->connection->getCompiler();
-        return $this->connection->count($compiler->update($this->sql), $compiler->getParams());
     }
 }

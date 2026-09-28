@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,37 +16,41 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
+use LogicException;
+
+/**
+ * Placeholder handed to sub-query closures: `->in(fn (Subquery $q) => $q->from('t')->select('id'))`.
+ */
 class Subquery
 {
-    /** @var    SelectStatement */
-    protected $select;
+    protected ?SelectStatement $select = null;
+
+    public function __clone()
+    {
+        if ($this->select !== null) {
+            $this->select = clone $this->select;
+        }
+    }
 
     /**
-     * @param   string|array $tables
-     *
-     * @return  SelectStatement
+     * @param string|array<int|string, string|Expression> $tables
      */
-    public function from($tables)
+    public function from(string|array $tables): SelectStatement
     {
         return $this->select = new SelectStatement($tables);
     }
 
     /**
-     * @internal
-     * @return SQLStatement
+     * @throws LogicException When from() was never called
      */
     public function getSQLStatement(): SQLStatement
     {
-        return $this->select->getSQLStatement();
-    }
+        if ($this->select === null) {
+            throw new LogicException('Sub-query has no FROM clause; call from() inside the closure');
+        }
 
-    /**
-     * @inheritDoc
-     */
-    public function __clone()
-    {
-        $this->select = clone $this->select;
+        return $this->select->getSQLStatement();
     }
 }

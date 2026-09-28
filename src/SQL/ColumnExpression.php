@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,230 +16,153 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
 use Closure;
 
+use function is_string;
+
+/**
+ * Collects the selected columns of a SELECT statement.
+ *
+ * @psalm-import-type ColumnArg from Expression
+ */
 class ColumnExpression
 {
-    /** @var  SQLStatement */
-    protected $sql;
-
-    /**
-     * ColumnExpression constructor.
-     * @param SQLStatement $statement
-     */
-    public function __construct(SQLStatement $statement)
+    public function __construct(protected SQLStatement $sql)
     {
-        $this->sql = $statement;
+    }
+
+    public function __clone()
+    {
+        $this->sql = clone $this->sql;
     }
 
     /**
-     * Add a column
-     *
-     * @param string|Closure|Expression $name Column's name
-     * @param string|null $alias (optional) Alias
-     *
-     * @return  $this
+     * @param ColumnArg $name
      */
-    public function column($name, ?string $alias = null): self
+    public function column(string|Expression|Closure $name, ?string $alias = null): static
     {
         $this->sql->addColumn($name, $alias);
+
         return $this;
     }
 
     /**
-     * Add multiple columns at once
+     * Accepts `['col', 'col' => 'alias', 'alias' => fn (Expression $e) => ...]`.
      *
-     * @param   array $columns Columns
-     *
-     * @return  $this
+     * @param array<int|string, ColumnArg> $columns
      */
-    public function columns(array $columns): self
+    public function columns(array $columns): static
     {
         foreach ($columns as $name => $alias) {
             if (!is_string($name)) {
-                $this->column($alias, null);
+                $this->column($alias);
                 continue;
             }
+
             if (is_string($alias)) {
                 $this->column($name, $alias);
             } else {
                 $this->column($alias, $name);
             }
         }
+
         return $this;
     }
 
     /**
-     * Add a `COUNT` expression
-     *
-     * @param string $column Column
-     * @param string|null $alias (optional) Column's alias
-     * @param bool $distinct (optional) Distinct column
-     *
-     * @return  $this
+     * @param ColumnArg|list<ColumnArg> $column
      */
-    public function count($column = '*', ?string $alias = null, bool $distinct = false): self
+    public function count(string|Expression|Closure|array $column = '*', ?string $alias = null, bool $distinct = false): static
     {
         return $this->column((new Expression())->count($column, $distinct), $alias);
     }
 
     /**
-     * Add an `AVG` expression
-     *
-     * @param string|Expression $column Column
-     * @param string|null $alias (optional) Alias
-     * @param bool $distinct (optional) Distinct column
-     *
-     * @return  $this
+     * @param ColumnArg $column
      */
-    public function avg($column, ?string $alias = null, bool $distinct = false): self
+    public function avg(string|Expression|Closure $column, ?string $alias = null, bool $distinct = false): static
     {
         return $this->column((new Expression())->avg($column, $distinct), $alias);
     }
 
     /**
-     * Add a `SUM` expression
-     *
-     * @param string|Expression $column Column
-     * @param string|null $alias (optional) Alias
-     * @param bool $distinct (optional) Distinct column
-     *
-     * @return  $this
+     * @param ColumnArg $column
      */
-    public function sum($column, ?string $alias = null, bool $distinct = false): self
+    public function sum(string|Expression|Closure $column, ?string $alias = null, bool $distinct = false): static
     {
         return $this->column((new Expression())->sum($column, $distinct), $alias);
     }
 
     /**
-     * Add a `MIN` expression
-     *
-     * @param string|Expression $column Column
-     * @param string|null $alias (optional) Alias
-     * @param bool $distinct (optional) Distinct column
-     *
-     * @return  $this
+     * @param ColumnArg $column
      */
-    public function min($column, ?string $alias = null, bool $distinct = false): self
+    public function min(string|Expression|Closure $column, ?string $alias = null, bool $distinct = false): static
     {
         return $this->column((new Expression())->min($column, $distinct), $alias);
     }
 
     /**
-     * Add a `MAX` expression
-     *
-     * @param string|Expression $column Column
-     * @param string|null $alias (optional) Alias
-     * @param bool $distinct (optional) Distinct column
-     *
-     * @return  $this
+     * @param ColumnArg $column
      */
-    public function max($column, ?string $alias = null, bool $distinct = false): self
+    public function max(string|Expression|Closure $column, ?string $alias = null, bool $distinct = false): static
     {
         return $this->column((new Expression())->max($column, $distinct), $alias);
     }
 
     /**
-     * Add a `UCASE` expression
-     *
-     * @param string|Expression $column Column
-     * @param string|null $alias (optional) Alias
-     *
-     * @return  $this
+     * @param ColumnArg $column
      */
-    public function ucase($column, ?string $alias = null): self
+    public function ucase(string|Expression|Closure $column, ?string $alias = null): static
     {
         return $this->column((new Expression())->ucase($column), $alias);
     }
 
     /**
-     * Add a `LCASE` expression
-     *
-     * @param string|Expression $column Column
-     * @param string|null $alias (optional) Alias
-     *
-     * @return  $this
+     * @param ColumnArg $column
      */
-    public function lcase($column, ?string $alias = null): self
+    public function lcase(string|Expression|Closure $column, ?string $alias = null): static
     {
         return $this->column((new Expression())->lcase($column), $alias);
     }
 
     /**
-     * Add a `MID` expression
-     *
-     * @param string|Expression $column Column
-     * @param int $start (optional) Substring start
-     * @param string|null $alias (optional) Alias
-     * @param int $length (optional) Substring length
-     *
-     * @return  $this
+     * @param ColumnArg $column
      */
-    public function mid($column, int $start = 1, ?string $alias = null, int $length = 0): self
-    {
-        return $this->column((new Expression())->mid($column, $start, $length), $alias);
-    }
-
-    /**
-     * Add a `LEN` expression
-     *
-     * @param string|Expression $column Column
-     * @param string|null $alias (optional) Alias
-     *
-     * @return  $this
-     */
-    public function len($column, ?string $alias = null): self
+    public function len(string|Expression|Closure $column, ?string $alias = null): static
     {
         return $this->column((new Expression())->len($column), $alias);
     }
 
     /**
-     * Add a `FORMAT` expression
-     *
-     * @param string|Expression $column Column
-     * @param int $decimals (optional) Decimals
-     * @param string|null $alias (optional) Alias
-     *
-     * @return  $this
+     * @param ColumnArg $column
      */
-    public function round($column, int $decimals = 0, ?string $alias = null): self
+    public function mid(string|Expression|Closure $column, int $start = 1, ?string $alias = null, int $length = 0): static
+    {
+        return $this->column((new Expression())->mid($column, $start, $length), $alias);
+    }
+
+    /**
+     * Kept from opis/database for output compatibility: emitted as FORMAT(column, decimals).
+     *
+     * @param ColumnArg $column
+     */
+    public function round(string|Expression|Closure $column, int $decimals = 0, ?string $alias = null): static
     {
         return $this->column((new Expression())->format($column, $decimals), $alias);
     }
 
     /**
-     * Add a `FORMAT` expression
-     *
-     * @param string|Expression $column Column
-     * @param int $format Decimals
-     * @param string|null $alias (optional) Alias
-     *
-     * @return  $this
+     * @param ColumnArg $column
      */
-    public function format($column, int $format, ?string $alias = null): self
+    public function format(string|Expression|Closure $column, int $format, ?string $alias = null): static
     {
         return $this->column((new Expression())->format($column, $format), $alias);
     }
 
-    /**
-     * Add a `NOW` expression
-     *
-     * @param null $alias (optional) Alias
-     *
-     * @return  $this
-     */
-    public function now($alias = null): self
+    public function now(?string $alias = null): static
     {
         return $this->column((new Expression())->now(), $alias);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function __clone()
-    {
-        $this->sql = clone $this->sql;
     }
 }

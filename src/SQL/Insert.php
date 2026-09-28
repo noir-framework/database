@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,35 +16,27 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
 use Noirapi\Database\Connection;
+use Override;
 
+/**
+ * INSERT bound to a connection: `$db->insert([...])->into('table')` runs it.
+ */
 class Insert extends InsertStatement
 {
-    /** @var    Connection */
-    protected $connection;
-
-    /**
-     * Insert constructor.
-     * @param Connection $connection
-     * @param SQLStatement|null $statement
-     */
-    public function __construct(Connection $connection, ?SQLStatement $statement = null)
+    public function __construct(protected Connection $connection, ?SQLStatement $statement = null)
     {
         parent::__construct($statement);
-        $this->connection = $connection;
     }
 
-    /**
-     * @param   string $table
-     *
-     * @return  boolean
-     */
-    public function into(string $table)
+    #[Override]
+    public function into(string $table): bool
     {
         parent::into($table);
         $compiler = $this->connection->getCompiler();
+
         return $this->connection->command($compiler->insert($this->sql), $compiler->getParams());
     }
 }

@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,159 +16,141 @@
  * limitations under the License.
  * ============================================================================ */
 
+declare(strict_types=1);
 namespace Noirapi\Database\SQL;
 
 use Closure;
 
+/**
+ * Fluent WHERE clause builder.
+ *
+ * `where('col')` returns a {@see Where} whose comparison methods return this statement;
+ * `where(fn (WhereStatement $w) => ...)` adds a nested group and returns this statement.
+ */
 class WhereStatement
 {
-    /** @var SQLStatement */
-    protected $sql;
+    protected SQLStatement $sql;
 
-    /** @var Where */
-    protected $where;
-
-    /**
-     * WhereStatement constructor.
-     * @param SQLStatement|null $statement
-     */
     public function __construct(?SQLStatement $statement = null)
     {
-        if ($statement === null) {
-            $statement = new SQLStatement();
-        }
-
-        $this->sql = $statement;
-        $this->where = new Where($this, $statement);
+        $this->sql = $statement ?? new SQLStatement();
     }
 
-    /**
-     * @param $column
-     * @param string $separator
-     * @param bool $isExpr
-     * @return WhereStatement|Where
-     */
-    protected function addWhereCondition($column, string $separator = 'AND', bool $isExpr = false)
+    public function __clone()
     {
-        if (($column instanceof Closure) && !$isExpr) {
-            $this->sql->addWhereConditionGroup($column, $separator);
-            return $this;
-        }
-
-        return $this->where->init($column, $separator);
+        $this->sql = clone $this->sql;
     }
 
-    /**
-     * @param Closure $select
-     * @param string $separator
-     * @param bool $not
-     * @return WhereStatement
-     */
-    protected function addWhereExistCondition(Closure $select, string $separator = 'AND', bool $not = false): self
-    {
-        $this->sql->addWhereExistsCondition($select, $separator, $not);
-        return $this;
-    }
-
-    /**
-     * @internal
-     * @return SQLStatement
-     */
     public function getSQLStatement(): SQLStatement
     {
         return $this->sql;
     }
 
     /**
-     * @param string|Closure|Expression $column
-     * @param bool $isExpr
-     * @return Where|Delete|Select|Update
+     * @param string|Expression|Closure $column
+     *
+     * @return ($isExpr is true ? Where<$this> : ($column is Closure ? $this : Where<$this>))
      */
-    public function where($column, bool $isExpr = false)
+    public function where(string|Expression|Closure $column, bool $isExpr = false): Where|static
     {
         return $this->addWhereCondition($column, 'AND', $isExpr);
     }
 
     /**
-     * @param string|Closure|Expression $column
-     * @param bool $isExpr
-     * @return Where|Delete|Select|Update
+     * @param string|Expression|Closure $column
+     *
+     * @return ($isExpr is true ? Where<$this> : ($column is Closure ? $this : Where<$this>))
      */
-    public function andWhere($column, bool $isExpr = false)
+    public function andWhere(string|Expression|Closure $column, bool $isExpr = false): Where|static
     {
         return $this->addWhereCondition($column, 'AND', $isExpr);
     }
 
     /**
-     * @param string|Closure|Expression $column
-     * @param bool $isExpr
-     * @return Where|Delete|Select|Update
+     * @param string|Expression|Closure $column
+     *
+     * @return ($isExpr is true ? Where<$this> : ($column is Closure ? $this : Where<$this>))
      */
-    public function orWhere($column, bool $isExpr = false)
+    public function orWhere(string|Expression|Closure $column, bool $isExpr = false): Where|static
     {
         return $this->addWhereCondition($column, 'OR', $isExpr);
     }
 
     /**
-     * @param Closure $select
-     * @return WhereStatement|Where|Delete|Select|Update
+     * @param Closure(Subquery): mixed $select
      */
-    public function whereExists(Closure $select): self
+    public function whereExists(Closure $select): static
     {
         return $this->addWhereExistCondition($select);
     }
 
     /**
-     * @param Closure $select
-     * @return WhereStatement|Where|Delete|Select|Update
+     * @param Closure(Subquery): mixed $select
      */
-    public function andWhereExists(Closure $select): self
+    public function andWhereExists(Closure $select): static
     {
         return $this->addWhereExistCondition($select);
     }
 
     /**
-     * @param Closure $select
-     * @return WhereStatement|Where|Delete|Select|Update
+     * @param Closure(Subquery): mixed $select
      */
-    public function orWhereExists(Closure $select): self
+    public function orWhereExists(Closure $select): static
     {
         return $this->addWhereExistCondition($select, 'OR');
     }
 
     /**
-     * @param Closure $select
-     * @return WhereStatement|Where|Delete|Select|Update
+     * @param Closure(Subquery): mixed $select
      */
-    public function whereNotExists(Closure $select): self
+    public function whereNotExists(Closure $select): static
     {
         return $this->addWhereExistCondition($select, 'AND', true);
     }
 
     /**
-     * @param Closure $select
-     * @return WhereStatement|Where|Delete|Select|Update
+     * @param Closure(Subquery): mixed $select
      */
-    public function andWhereNotExists(Closure $select): self
+    public function andWhereNotExists(Closure $select): static
     {
         return $this->addWhereExistCondition($select, 'AND', true);
     }
 
     /**
-     * @param Closure $select
-     * @return WhereStatement|Where|Delete|Select|Update
+     * @param Closure(Subquery): mixed $select
      */
-    public function orWhereNotExists(Closure $select): self
+    public function orWhereNotExists(Closure $select): static
     {
         return $this->addWhereExistCondition($select, 'OR', true);
     }
 
     /**
-     * @inheritDoc
+     * @param string|Expression|Closure $column
+     *
+     * @return Where<$this>|$this
      */
-    public function __clone()
+    protected function addWhereCondition(
+        string|Expression|Closure $column,
+        string $separator = 'AND',
+        bool $isExpr = false,
+    ): Where|static {
+        if ($column instanceof Closure && !$isExpr) {
+            /** @var Closure(WhereStatement): mixed $column */
+            $this->sql->addWhereConditionGroup($column, $separator);
+
+            return $this;
+        }
+
+        return (new Where($this, $this->sql))->init($column, $separator);
+    }
+
+    /**
+     * @param Closure(Subquery): mixed $select
+     */
+    protected function addWhereExistCondition(Closure $select, string $separator = 'AND', bool $not = false): static
     {
-        $this->sql = clone $this->sql;
-        $this->where = new Where($this, $this->sql);
+        $this->sql->addWhereExistsCondition($select, $separator, $not);
+
+        return $this;
     }
 }

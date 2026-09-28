@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,157 +16,104 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
 use Closure;
 
+use function is_string;
+
+/**
+ * The comparison half of a HAVING condition on an aggregate.
+ */
 class Having
 {
-    /** @var  SQLStatement */
-    protected $sql;
+    protected string|Expression $aggregate = '';
 
-    /** @var    string|Expression */
-    protected $aggregate;
+    protected string $separator = 'AND';
 
-    /** @var    string */
-    protected $separator;
-
-    /**
-     * Having constructor.
-     * @param SQLStatement $statement
-     */
-    public function __construct(SQLStatement $statement)
+    public function __construct(protected SQLStatement $sql)
     {
-        $this->sql = $statement;
     }
 
-    /**
-     * @param   mixed $value
-     * @param   string $operator
-     * @param   boolean $is_column
-     */
-    protected function addCondition($value, string $operator, bool $is_column)
-    {
-        if ($is_column && is_string($value)) {
-            $expr = new Expression();
-            $value = $expr->column($value);
-        }
-
-        $this->sql->addHavingCondition($this->aggregate, $value, $operator, $this->separator);
-    }
-
-    /**
-     * @param   string|Closure|Expression $aggregate
-     * @param   string $separator
-     *
-     * @return  $this
-     */
-    public function init($aggregate, string $separator): self
-    {
-        if ($aggregate instanceof Closure) {
-            $aggregate = Expression::fromClosure($aggregate);
-        }
-        $this->aggregate = $aggregate;
-        $this->separator = $separator;
-        return $this;
-    }
-
-    /**
-     * @param   mixed $value
-     * @param   bool $is_column (optional)
-     */
-    public function eq($value, bool $is_column = false)
-    {
-        $this->addCondition($value, '=', $is_column);
-    }
-
-    /**
-     * @param   mixed $value
-     * @param   bool $is_column (optional)
-     */
-    public function ne($value, bool $is_column = false)
-    {
-        $this->addCondition($value, '!=', $is_column);
-    }
-
-    /**
-     * @param   mixed $value
-     * @param   bool $is_column (optional)
-     */
-    public function lt($value, bool $is_column = false)
-    {
-        $this->addCondition($value, '<', $is_column);
-    }
-
-    /**
-     * @param   mixed $value
-     * @param   bool $is_column (optional)
-     */
-    public function gt($value, bool $is_column = false)
-    {
-        $this->addCondition($value, '>', $is_column);
-    }
-
-    /**
-     * @param   mixed $value
-     * @param   bool $is_column (optional)
-     */
-    public function lte($value, bool $is_column = false)
-    {
-        $this->addCondition($value, '<=', $is_column);
-    }
-
-    /**
-     * @param   mixed $value
-     * @param   bool $is_column (optional)
-     */
-    public function gte($value, bool $is_column = false)
-    {
-        $this->addCondition($value, '>=', $is_column);
-    }
-
-    /**
-     * @param   array|Closure $value
-     */
-    public function in($value)
-    {
-        $this->sql->addHavingInCondition($this->aggregate, $value, $this->separator, false);
-    }
-
-    /**
-     * @param   array|Closure $value
-     */
-    public function notIn($value)
-    {
-        $this->sql->addHavingInCondition($this->aggregate, $value, $this->separator, true);
-    }
-
-    /**
-     * @param   string|float|int $value1
-     * @param   string|float|int $value2
-     */
-    public function between($value1, $value2)
-    {
-        $this->sql->addHavingBetweenCondition($this->aggregate, $value1, $value2, $this->separator, false);
-    }
-
-    /**
-     * @param   string|float|int $value1
-     * @param   string|float|int $value2
-     */
-    public function notBetween($value1, $value2)
-    {
-        $this->sql->addHavingBetweenCondition($this->aggregate, $value1, $value2, $this->separator, true);
-    }
-
-    /**
-     * @inheritDoc
-     */
     public function __clone()
     {
         if ($this->aggregate instanceof Expression) {
             $this->aggregate = clone $this->aggregate;
         }
+
         $this->sql = clone $this->sql;
+    }
+
+    public function init(string|Expression|Closure $aggregate, string $separator): static
+    {
+        $this->aggregate = $aggregate instanceof Closure ? Expression::fromClosure($aggregate) : $aggregate;
+        $this->separator = $separator;
+
+        return $this;
+    }
+
+    public function eq(mixed $value, bool $is_column = false): void
+    {
+        $this->addCondition($value, '=', $is_column);
+    }
+
+    public function ne(mixed $value, bool $is_column = false): void
+    {
+        $this->addCondition($value, '!=', $is_column);
+    }
+
+    public function lt(mixed $value, bool $is_column = false): void
+    {
+        $this->addCondition($value, '<', $is_column);
+    }
+
+    public function gt(mixed $value, bool $is_column = false): void
+    {
+        $this->addCondition($value, '>', $is_column);
+    }
+
+    public function lte(mixed $value, bool $is_column = false): void
+    {
+        $this->addCondition($value, '<=', $is_column);
+    }
+
+    public function gte(mixed $value, bool $is_column = false): void
+    {
+        $this->addCondition($value, '>=', $is_column);
+    }
+
+    /**
+     * @param array<mixed>|(Closure(Subquery): mixed) $value
+     */
+    public function in(array|Closure $value): void
+    {
+        $this->sql->addHavingInCondition($this->aggregate, $value, $this->separator, false);
+    }
+
+    /**
+     * @param array<mixed>|(Closure(Subquery): mixed) $value
+     */
+    public function notIn(array|Closure $value): void
+    {
+        $this->sql->addHavingInCondition($this->aggregate, $value, $this->separator, true);
+    }
+
+    public function between(mixed $value1, mixed $value2): void
+    {
+        $this->sql->addHavingBetweenCondition($this->aggregate, $value1, $value2, $this->separator, false);
+    }
+
+    public function notBetween(mixed $value1, mixed $value2): void
+    {
+        $this->sql->addHavingBetweenCondition($this->aggregate, $value1, $value2, $this->separator, true);
+    }
+
+    protected function addCondition(mixed $value, string $operator, bool $is_column): void
+    {
+        if ($is_column && is_string($value)) {
+            $value = (new Expression())->column($value);
+        }
+
+        $this->sql->addHavingCondition($this->aggregate, $value, $operator, $this->separator);
     }
 }

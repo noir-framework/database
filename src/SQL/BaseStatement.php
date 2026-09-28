@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,69 +16,66 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
 use Closure;
 
+/**
+ * WHERE plus JOIN support shared by SELECT, UPDATE and DELETE.
+ */
 class BaseStatement extends WhereStatement
 {
-
     /**
-     * @param   string|string[] $table
-     * @param   Closure $closure
-     *
-     * @return  Delete|Select|BaseStatement
+     * @param string|Expression|array<int|string, string|Expression>|(Closure(Expression): mixed) $table
+     * @param Closure(Join): mixed $closure
      */
-    public function join($table, Closure $closure)
+    public function join(string|Expression|array|Closure $table, Closure $closure): static
     {
         $this->sql->addJoinClause('INNER', $table, $closure);
+
         return $this;
     }
 
     /**
-     * @param   string|string[] $table
-     * @param   Closure $closure
-     *
-     * @return  Delete|Select|BaseStatement
+     * @param string|Expression|array<int|string, string|Expression>|(Closure(Expression): mixed) $table
+     * @param Closure(Join): mixed $closure
      */
-    public function leftJoin($table, Closure $closure)
+    public function leftJoin(string|Expression|array|Closure $table, Closure $closure): static
     {
         $this->sql->addJoinClause('LEFT', $table, $closure);
+
         return $this;
     }
 
     /**
-     * @param   string|string[] $table
-     * @param   Closure $closure
-     *
-     * @return  Delete|Select|BaseStatement
+     * @param string|Expression|array<int|string, string|Expression>|(Closure(Expression): mixed) $table
+     * @param Closure(Join): mixed $closure
      */
-    public function rightJoin($table, Closure $closure)
+    public function rightJoin(string|Expression|array|Closure $table, Closure $closure): static
     {
         $this->sql->addJoinClause('RIGHT', $table, $closure);
+
         return $this;
     }
 
     /**
-     * @param   string|string[] $table
-     * @param   Closure $closure
-     *
-     * @return  Delete|Select|BaseStatement
+     * @param string|Expression|array<int|string, string|Expression>|(Closure(Expression): mixed) $table
+     * @param Closure(Join): mixed $closure
      */
-    public function fullJoin($table, Closure $closure)
+    public function fullJoin(string|Expression|array|Closure $table, Closure $closure): static
     {
         $this->sql->addJoinClause('FULL', $table, $closure);
+
         return $this;
     }
 
     /**
-     * @param   string|string[] $table
-     *
-     * @return  Delete|Select|BaseStatement
+     * @param string|Expression|array<int|string, string|Expression>|(Closure(Expression): mixed) $table
      */
-    public function crossJoin($table)
+    public function crossJoin(string|Expression|array|Closure $table): static
     {
-        $this->sql->addJoinClause('CROSS', $table, null);
+        $this->sql->addJoinClause('CROSS', $table);
+
         return $this;
     }
 }

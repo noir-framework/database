@@ -17,28 +17,22 @@
  * ============================================================================ */
 
 declare(strict_types=1);
-namespace Noirapi\Database\SQL\Compiler;
 
-use Noirapi\Database\SQL\Clause\SqlFunction;
-use Noirapi\Database\SQL\Compiler;
-use Override;
+namespace Noirapi\Database\SQL\Clause;
 
-class MySQL extends Compiler
+use Noirapi\Database\SQL\Expression;
+use Noirapi\Database\SQL\Join;
+
+/**
+ * <type> JOIN tables [ON conditions]
+ */
+final readonly class JoinClause
 {
-    protected string $wrapper = '`%s`';
-
-    /**
-     * Kept from opis/database for output compatibility: MySQL's ROUND() is emitted as FORMAT().
-     */
-    #[Override]
-    protected function sqlFunctionROUND(SqlFunction $func): string
-    {
-        return 'FORMAT(' . $this->wrap($func->column) . ', ' . $this->param($func->decimals) . ')';
-    }
-
-    #[Override]
-    protected function sqlFunctionLEN(SqlFunction $func): string
-    {
-        return 'LENGTH(' . $this->wrap($func->column) . ')';
+    public function __construct(
+        public string $type,
+        /** @var array<int|string, string|Expression> */
+        public array $tables,
+        public ?Join $join,
+    ) {
     }
 }

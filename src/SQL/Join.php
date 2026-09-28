@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,66 +16,112 @@
  * limitations under the License.
  * ============================================================================ */
 
+declare(strict_types=1);
 namespace Noirapi\Database\SQL;
 
 use Closure;
+use InvalidArgumentException;
+use Noirapi\Database\SQL\Clause\Condition;
+use Noirapi\Database\SQL\Clause\JoinColumn;
+use Noirapi\Database\SQL\Clause\JoinExpression;
+use Noirapi\Database\SQL\Clause\JoinNested;
 
+use function is_string;
+
+/**
+ * Collects the ON conditions of a JOIN.
+ */
 class Join
 {
-    /** @var    array */
-    protected $conditions = [];
+    /** @var list<Condition> */
+    protected array $conditions = [];
 
     /**
-     * @param Closure|Expression $expression
-     * @param string $separator
-     *
-     * @return $this
+     * @return list<Condition>
      */
-    protected function addJoinExpression($expression, string $separator = 'AND')
+    public function getJoinConditions(): array
+    {
+        return $this->conditions;
+    }
+
+    /**
+     * `on('a.id', 'b.id')` compares two columns; `on(fn (Join $j) => ...)` nests conditions;
+     * `on($expression, true)` adds a raw expression.
+     *
+     * @param string|Expression|Closure $column1
+     * @param string|Expression|Closure|true|null $column2
+     */
+    public function on(
+        string|Expression|Closure $column1,
+        string|Expression|Closure|bool|null $column2 = null,
+        string $operator = '=',
+    ): static {
+        return $this->addJoinCondition($column1, $column2, $operator, 'AND');
+    }
+
+    /**
+     * @param string|Expression|Closure $column1
+     * @param string|Expression|Closure|true|null $column2
+     */
+    public function andOn(
+        string|Expression|Closure $column1,
+        string|Expression|Closure|bool|null $column2 = null,
+        string $operator = '=',
+    ): static {
+        return $this->addJoinCondition($column1, $column2, $operator, 'AND');
+    }
+
+    /**
+     * @param string|Expression|Closure $column1
+     * @param string|Expression|Closure|true|null $column2
+     */
+    public function orOn(
+        string|Expression|Closure $column1,
+        string|Expression|Closure|bool|null $column2 = null,
+        string $operator = '=',
+    ): static {
+        return $this->addJoinCondition($column1, $column2, $operator, 'OR');
+    }
+
+    /**
+     * @param Expression|(Closure(Expression): mixed) $expression
+     */
+    protected function addJoinExpression(Expression|Closure $expression, string $separator = 'AND'): static
     {
         if ($expression instanceof Closure) {
             $expression = Expression::fromClosure($expression);
         }
 
-        $this->conditions[] = [
-            'type' => 'joinExpression',
-            'expression' => $expression,
-            'separator' => $separator,
-        ];
+        $this->conditions[] = new JoinExpression($expression, $separator);
 
         return $this;
     }
 
     /**
-     * @param   string $column1
-     * @param   string $column2
-     * @param   string $operator
-     * @param   string $separator
-     *
-     * @return $this
+     * @param string|Expression|Closure $column1
+     * @param string|Expression|Closure|bool|null $column2
      */
-    protected function addJoinCondition($column1, $column2, $operator, string $separator = 'AND')
-    {
+    protected function addJoinCondition(
+        string|Expression|Closure $column1,
+        string|Expression|Closure|bool|null $column2,
+        string $operator,
+        string $separator = 'AND',
+    ): static {
         if ($column1 instanceof Closure) {
             if ($column2 === true) {
                 return $this->addJoinExpression($column1, $separator);
             }
 
             if ($column2 === null) {
-                $join = new Join();
+                $join = new self();
                 $column1($join);
-
-                $this->conditions[] = [
-                    'type' => 'joinNested',
-                    'join' => $join,
-                    'separator' => $separator,
-                ];
+                $this->conditions[] = new JoinNested($join, $separator);
 
                 return $this;
             }
 
             $column1 = Expression::fromClosure($column1);
-        } elseif (($column1 instanceof Expression) && $column2 === true) {
+        } elseif ($column1 instanceof Expression && $column2 === true) {
             return $this->addJoinExpression($column1, $separator);
         }
 
@@ -82,58 +129,12 @@ class Join
             $column2 = Expression::fromClosure($column2);
         }
 
-        $this->conditions[] = [
-            'type' => 'joinColumn',
-            'column1' => $column1,
-            'column2' => $column2,
-            'operator' => $operator,
-            'separator' => $separator,
-        ];
+        if (!is_string($column2) && !$column2 instanceof Expression) {
+            throw new InvalidArgumentException('Join::on() needs a second column unless the first is a closure');
+        }
+
+        $this->conditions[] = new JoinColumn($column1, $column2, $operator, $separator);
 
         return $this;
-    }
-
-    /**
-     * @return  array
-     */
-    public function getJoinConditions()
-    {
-        return $this->conditions;
-    }
-
-    /**
-     * @param   string|Closure $column1
-     * @param   string|Closure $column2 (optional)
-     * @param   string $operator (optional)
-     *
-     * @return  $this
-     */
-    public function on($column1, $column2 = null, $operator = '=')
-    {
-        return $this->addJoinCondition($column1, $column2, $operator);
-    }
-
-    /**
-     * @param   string $column1
-     * @param   string $column2 (optional)
-     * @param   string $operator (optional)
-     *
-     * @return  $this
-     */
-    public function andOn($column1, $column2 = null, $operator = '=')
-    {
-        return $this->addJoinCondition($column1, $column2, $operator, 'AND');
-    }
-
-    /**
-     * @param   string $column1
-     * @param   string $column2 (optional)
-     * @param   string $operator (optional)
-     *
-     * @return  $this
-     */
-    public function orOn($column1, $column2 = null, $operator = '=')
-    {
-        return $this->addJoinCondition($column1, $column2, $operator, 'OR');
     }
 }

@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,99 +16,85 @@
  * limitations under the License.
  * ============================================================================ */
 
+declare(strict_types=1);
 namespace Noirapi\Database\SQL;
 
 use Closure;
 
+/**
+ * Fluent HAVING clause builder.
+ */
 class HavingStatement
 {
-    /** @var    SQLStatement */
-    protected $sql;
+    protected SQLStatement $sql;
 
-    /** @var    HavingExpression */
-    protected $expression;
+    protected HavingExpression $expression;
 
-    /**
-     * HavingStatement constructor.
-     * @param SQLStatement|null $statement
-     */
     public function __construct(?SQLStatement $statement = null)
     {
-        if ($statement === null) {
-            $statement = new SQLStatement();
-        }
-        $this->sql = $statement;
-        $this->expression = new HavingExpression($statement);
+        $this->sql = $statement ?? new SQLStatement();
+        $this->expression = new HavingExpression($this->sql);
     }
 
-    /**
-     * @param string|Expression|Closure $column
-     * @param Closure|null $value
-     * @param string $separator
-     *
-     * @return  $this
-     */
-    protected function addCondition($column, ?Closure $value = null, $separator = 'AND'): self
+    public function __clone()
     {
-        if (($column instanceof Closure) && $value === null) {
-            $this->sql->addHavingGroupCondition($column, $separator);
-        } else {
-            $expr = $this->expression->init($column, $separator);
-            if ($value) {
-                $value($expr);
-            }
-        }
-        return $this;
+        $this->sql = clone $this->sql;
+        $this->expression = new HavingExpression($this->sql);
     }
 
-    /**
-     * @internal
-     * @return SQLStatement
-     */
     public function getSQLStatement(): SQLStatement
     {
         return $this->sql;
     }
 
     /**
+     * `having('col', fn (HavingExpression $e) => $e->count()->gt(5))` adds a condition;
+     * `having(fn (HavingStatement $h) => ...)` adds a nested group.
+     *
      * @param string|Expression|Closure $column
-     * @param Closure|null $value (optional)
-     *
-     * @return  $this
+     * @param (Closure(HavingExpression): mixed)|null $value
      */
-    public function having($column, ?Closure $value = null): self
+    public function having(string|Expression|Closure $column, ?Closure $value = null): static
     {
         return $this->addCondition($column, $value, 'AND');
     }
 
     /**
-     * @param string|Expression $column
-     * @param Closure|null $value (optional)
-     *
-     * @return  $this
+     * @param string|Expression|Closure $column
+     * @param (Closure(HavingExpression): mixed)|null $value
      */
-    public function andHaving($column, ?Closure $value = null): self
+    public function andHaving(string|Expression|Closure $column, ?Closure $value = null): static
     {
         return $this->addCondition($column, $value, 'AND');
     }
 
     /**
-     * @param string|Expression $column
-     * @param Closure|null $value (optional)
-     *
-     * @return  $this
+     * @param string|Expression|Closure $column
+     * @param (Closure(HavingExpression): mixed)|null $value
      */
-    public function orHaving($column, ?Closure $value = null): self
+    public function orHaving(string|Expression|Closure $column, ?Closure $value = null): static
     {
         return $this->addCondition($column, $value, 'OR');
     }
 
     /**
-     * @inheritDoc
+     * @param string|Expression|Closure $column
+     * @param (Closure(HavingExpression): mixed)|null $value
      */
-    public function __clone()
+    protected function addCondition(string|Expression|Closure $column, ?Closure $value, string $separator): static
     {
-        $this->sql = clone $this->sql;
-        $this->expression = new HavingExpression($this->sql);
+        if ($column instanceof Closure && $value === null) {
+            /** @var Closure(HavingStatement): mixed $column */
+            $this->sql->addHavingGroupCondition($column, $separator);
+
+            return $this;
+        }
+
+        $expr = $this->expression->init($column, $separator);
+        if ($value !== null) {
+            $value($expr);
+        }
+
+        return $this;
     }
 }

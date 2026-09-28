@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,111 +16,84 @@
  * limitations under the License.
  * ============================================================================ */
 
+declare(strict_types=1);
 namespace Noirapi\Database;
 
-use Noirapi\Database\SQL\InsertStatement;
-use Noirapi\Database\SQL\Query as QueryCommand;
-use Noirapi\Database\SQL\Insert as InsertCommand;
-use Noirapi\Database\SQL\Update as UpdateCommand;
+use Noirapi\Database\SQL\Expression;
+use Noirapi\Database\SQL\Insert;
+use Noirapi\Database\SQL\Query;
+use Noirapi\Database\SQL\Update;
+use PDOException;
 
+/**
+ * Entry point for queries: `$db->from('users')->where('id')->is(1)->select()`.
+ */
 class Database
 {
-    /** @var   Connection   Connection instance. */
-    protected $connection;
+    protected ?Schema $schema = null;
 
-    /** @var    Schema       Schema instance. */
-    protected $schema;
-
-    /**
-     * Constructor
-     *
-     * @param   Connection $connection Connection instance.
-     */
-    public function __construct(Connection $connection)
+    public function __construct(protected Connection $connection)
     {
-        $this->connection = $connection;
     }
 
-    /**
-     * Database connection
-     *
-     * @return   Connection
-     */
     public function getConnection(): Connection
     {
         return $this->connection;
     }
 
     /**
-     * Returns the query log for this database.
-     *
-     * @return array
+     * @return list<array{query: string, time?: float}>
      */
-    public function getLog()
+    public function getLog(): array
     {
         return $this->connection->getLog();
     }
 
     /**
-     * Execute a query in order to fetch or to delete records.
-     *
-     * @param   string|array $tables Table name or an array of tables
-     *
-     * @return  QueryCommand
+     * @param string|array<int|string, string|Expression> $tables a table, a list of tables, or table => alias
      */
-    public function from($tables): QueryCommand
+    public function from(string|array $tables): Query
     {
-        return new QueryCommand($this->connection, $tables);
+        return new Query($this->connection, $tables);
     }
 
     /**
-     * Insert new records into a table.
-     *
-     * @param   array $values An array of values.
-     *
-     * @return  InsertCommand|InsertStatement
+     * @param array<string, mixed> $values column => value
      */
-    public function insert(array $values): InsertCommand
+    public function insert(array $values): Insert
     {
-        return (new InsertCommand($this->connection))->insert($values);
+        return (new Insert($this->connection))->insert($values);
     }
 
     /**
-     * Update records.
-     *
-     * @param   string $table Table name
-     *
-     * @return  UpdateCommand
+     * @param string|array<int|string, string|Expression> $table
      */
-    public function update($table): UpdateCommand
+    public function update(string|array $table): Update
     {
-        return new UpdateCommand($this->connection, $table);
+        return new Update($this->connection, $table);
     }
 
-    /**
-     * The associated schema instance.
-     *
-     * @return  Schema
-     */
     public function schema(): Schema
     {
-        if ($this->schema === null) {
-            $this->schema = $this->connection->getSchema();
-        }
-
-        return $this->schema;
+        return $this->schema ??= $this->connection->getSchema();
     }
 
     /**
-     * Performs a transaction
+     * Runs the callback (receiving this Database) inside a transaction.
      *
-     * @param callable $query
-     * @param mixed|null $default
-     * @return mixed|null
-     * @throws \PDOException
+     * @template TResult
+     * @template TDefault
+     *
+     * @param callable(Database): TResult $query
+     * @param TDefault $default
+     *
+     * @return TResult|TDefault
+     *
+     * @throws PDOException
      */
-    public function transaction(callable $query, $default = null)
+    public function transaction(callable $query, mixed $default = null): mixed
     {
+        /** @var callable(mixed): TResult $query */
         return $this->connection->transaction($query, $this, $default);
     }
 }

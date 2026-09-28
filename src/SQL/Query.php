@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,226 +16,168 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
 use Closure;
 use Noirapi\Database\Connection;
+use Noirapi\Database\ResultSet;
 
+/**
+ * Entry point returned by `Database::from()`: add WHERE / JOIN clauses, then select or delete.
+ *
+ * @psalm-import-type ColumnArg from Expression
+ */
 class Query extends BaseStatement
 {
-    /** @var    Connection */
-    protected $connection;
-
-    /** @var    array */
-    protected $tables;
-
     /**
-     * Query constructor.
-     * @param Connection $connection
-     * @param $tables
-     * @param SQLStatement|null $statement
+     * @param string|array<int|string, string|Expression> $tables
      */
-    public function __construct(Connection $connection, $tables, ?SQLStatement $statement = null)
-    {
+    public function __construct(
+        protected Connection $connection,
+        protected string|array $tables,
+        ?SQLStatement $statement = null,
+    ) {
         parent::__construct($statement);
-        $this->tables = $tables;
-        $this->connection = $connection;
     }
 
-    /**
-     * @return  Select
-     */
-    protected function buildSelect(): Select
-    {
-        return new Select($this->connection, $this->tables, $this->sql);
-    }
-
-    /**
-     * @return  Delete
-     */
-    protected function buildDelete(): Delete
-    {
-        return new Delete($this->connection, $this->tables, $this->sql);
-    }
-
-    /**
-     * @param   bool $value (optional)
-     *
-     * @return  Select|SelectStatement
-     */
-    public function distinct($value = true)
+    public function distinct(bool $value = true): Select
     {
         return $this->buildSelect()->distinct($value);
     }
 
     /**
-     * @param   string|Closure|Expression|array $columns
-     *
-     * @return  Select
+     * @param ColumnArg|list<ColumnArg> $columns
      */
-    public function groupBy($columns)
+    public function groupBy(string|Expression|Closure|array $columns): Select
     {
         return $this->buildSelect()->groupBy($columns);
     }
 
     /**
-     * @param   string $column
-     * @param   Closure $value (optional)
-     *
-     * @return  Select
+     * @param string|Expression|Closure $column
+     * @param (Closure(HavingExpression): mixed)|null $value
      */
-    public function having($column, ?Closure $value = null)
+    public function having(string|Expression|Closure $column, ?Closure $value = null): Select
     {
         return $this->buildSelect()->having($column, $value);
     }
 
     /**
-     * @param string $column
-     * @param Closure|null $value (optional)
-     *
-     * @return  Select
+     * @param string|Expression|Closure $column
+     * @param (Closure(HavingExpression): mixed)|null $value
      */
-    public function andHaving($column, ?Closure $value = null)
+    public function andHaving(string|Expression|Closure $column, ?Closure $value = null): Select
     {
         return $this->buildSelect()->andHaving($column, $value);
     }
 
     /**
-     * @param string|Closure|Expression $column
-     * @param Closure|null $value (optional)
-     *
-     * @return  Select
+     * @param string|Expression|Closure $column
+     * @param (Closure(HavingExpression): mixed)|null $value
      */
-    public function orHaving($column, ?Closure $value = null)
+    public function orHaving(string|Expression|Closure $column, ?Closure $value = null): Select
     {
         return $this->buildSelect()->orHaving($column, $value);
     }
 
     /**
-     * @param   string|Closure|Expression|array $columns
-     * @param   string $order (optional)
-     * @param   string $nulls (optional)
-     *
-     * @return  Select|SelectStatement
+     * @param ColumnArg|list<ColumnArg> $columns
      */
-    public function orderBy($columns, $order = 'ASC', $nulls = null)
+    public function orderBy(string|Expression|Closure|array $columns, string $order = 'ASC', ?string $nulls = null): Select
     {
         return $this->buildSelect()->orderBy($columns, $order, $nulls);
     }
 
-    /**
-     * @param   int $value
-     *
-     * @return  Select|SelectStatement
-     */
-    public function limit($value)
+    public function limit(int $value): Select
     {
         return $this->buildSelect()->limit($value);
     }
 
-    /**
-     * @param   int $value
-     *
-     * @return  Select|SelectStatement
-     */
-    public function offset($value)
+    public function offset(int $value): Select
     {
         return $this->buildSelect()->offset($value);
     }
 
-    /**
-     * @param   string $table
-     * @param   string $database (optional)
-     *
-     * @return  Select|SelectStatement
-     */
-    public function into($table, $database = null)
+    public function into(string $table, ?string $database = null): Select
     {
         return $this->buildSelect()->into($table, $database);
     }
 
     /**
-     * @param   array $columns (optional)
+     * @param ColumnArg|array<int|string, ColumnArg>|(Closure(ColumnExpression): mixed) $columns
      *
-     * @return  \Noirapi\Database\ResultSet
+     * @return ResultSet<mixed>
      */
-    public function select($columns = [])
+    public function select(string|Expression|Closure|array $columns = []): ResultSet
     {
         return $this->buildSelect()->select($columns);
     }
 
     /**
-     * @param   string|Closure|Expression $name
-     *
-     * @return  mixed|false
+     * @param ColumnArg $name
      */
-    public function column($name)
+    public function column(string|Expression|Closure $name): mixed
     {
         return $this->buildSelect()->column($name);
     }
 
     /**
-     * @param   string|Closure|Expression $column (optional)
-     * @param   bool $distinct (optional)
-     *
-     * @return  int
+     * @param ColumnArg|list<ColumnArg> $column
      */
-    public function count($column = '*', $distinct = false)
+    public function count(string|Expression|Closure|array $column = '*', bool $distinct = false): mixed
     {
         return $this->buildSelect()->count($column, $distinct);
     }
 
     /**
-     * @param   string|Closure|Expression $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  int|float
+     * @param ColumnArg $column
      */
-    public function avg($column, $distinct = false)
+    public function avg(string|Expression|Closure $column, bool $distinct = false): mixed
     {
         return $this->buildSelect()->avg($column, $distinct);
     }
 
     /**
-     * @param   string|Closure|Expression $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  int|float
+     * @param ColumnArg $column
      */
-    public function sum($column, $distinct = false)
+    public function sum(string|Expression|Closure $column, bool $distinct = false): mixed
     {
         return $this->buildSelect()->sum($column, $distinct);
     }
 
     /**
-     * @param   string|Closure|Expression $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  int|float
+     * @param ColumnArg $column
      */
-    public function min($column, $distinct = false)
+    public function min(string|Expression|Closure $column, bool $distinct = false): mixed
     {
         return $this->buildSelect()->min($column, $distinct);
     }
 
     /**
-     * @param   string|Closure|Expression $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  int|float
+     * @param ColumnArg $column
      */
-    public function max($column, $distinct = false)
+    public function max(string|Expression|Closure $column, bool $distinct = false): mixed
     {
         return $this->buildSelect()->max($column, $distinct);
     }
 
     /**
-     * @param   string[] $tables (optional)
+     * Deletes the matching rows and returns the affected row count.
      *
-     * @return  int
+     * @param string|array<int|string, string|Expression> $tables Tables to delete from when joining
      */
-    public function delete($tables = [])
+    public function delete(string|array $tables = []): int
     {
         return $this->buildDelete()->delete($tables);
+    }
+
+    protected function buildSelect(): Select
+    {
+        return new Select($this->connection, $this->tables, $this->sql);
+    }
+
+    protected function buildDelete(): Delete
+    {
+        return new Delete($this->connection, $this->tables, $this->sql);
     }
 }

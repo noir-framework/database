@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,115 +16,112 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\SQL;
+declare(strict_types=1);namespace Noirapi\Database\SQL;
 
 use Closure;
 use Noirapi\Database\Connection;
 use Noirapi\Database\ResultSet;
+use Override;
 
+/**
+ * SELECT bound to a connection; the terminal methods run the query.
+ *
+ * @psalm-import-type ColumnArg from Expression
+ */
 class Select extends SelectStatement
 {
-    /** @var Connection */
-    protected $connection;
-
     /**
-     * Select constructor.
-     * @param Connection $connection
-     * @param array|string $tables
-     * @param SQLStatement|null $statement
+     * @param string|array<int|string, string|Expression> $tables
      */
-    public function __construct(Connection $connection, $tables, ?SQLStatement $statement = null)
+    public function __construct(protected Connection $connection, string|array $tables, ?SQLStatement $statement = null)
     {
         parent::__construct($tables, $statement);
-        $this->connection = $connection;
     }
 
     /**
-     * @param   string|Closure|Expression|string[]|Closure[]|Expression[] $columns (optional)
+     * @param ColumnArg|array<int|string, ColumnArg>|(Closure(ColumnExpression): mixed) $columns
      *
-     * @return  ResultSet
+     * @return ResultSet<mixed>
      */
-    public function select($columns = [])
+    #[Override]
+    public function select(string|Expression|Closure|array $columns = []): ResultSet
     {
         parent::select($columns);
         $compiler = $this->connection->getCompiler();
+
         return $this->connection->query($compiler->select($this->sql), $compiler->getParams());
     }
 
     /**
-     * @param   string|Closure|Expression $name
-     *
-     * @return  mixed|false
+     * @param ColumnArg $name
      */
-    public function column($name)
+    #[Override]
+    public function column(string|Expression|Closure $name): mixed
     {
         parent::column($name);
+
         return $this->getColumnResult();
     }
 
     /**
-     * @param   string|Closure|Expression|string[]|Closure[]|Expression[] $column (optional)
-     * @param   bool $distinct (optional)
-     *
-     * @return  int
+     * @param ColumnArg|list<ColumnArg> $column
      */
-    public function count($column = '*', bool $distinct = false)
+    #[Override]
+    public function count(string|Expression|Closure|array $column = '*', bool $distinct = false): mixed
     {
         parent::count($column, $distinct);
+
         return $this->getColumnResult();
     }
 
     /**
-     * @param   string|Closure|Expression $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  int|float
+     * @param ColumnArg $column
      */
-    public function avg($column, bool $distinct = false)
+    #[Override]
+    public function avg(string|Expression|Closure $column, bool $distinct = false): mixed
     {
         parent::avg($column, $distinct);
+
         return $this->getColumnResult();
     }
 
     /**
-     * @param   string|Closure|Expression $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  int|float
+     * @param ColumnArg $column
      */
-    public function sum($column, bool $distinct = false)
+    #[Override]
+    public function sum(string|Expression|Closure $column, bool $distinct = false): mixed
     {
         parent::sum($column, $distinct);
+
         return $this->getColumnResult();
     }
 
     /**
-     * @param   string|Closure|Expression $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  int|float
+     * @param ColumnArg $column
      */
-    public function min($column, bool $distinct = false)
+    #[Override]
+    public function min(string|Expression|Closure $column, bool $distinct = false): mixed
     {
         parent::min($column, $distinct);
+
         return $this->getColumnResult();
     }
 
     /**
-     * @param   string|Closure|Expression $column
-     * @param   bool $distinct (optional)
-     *
-     * @return  int|float
+     * @param ColumnArg $column
      */
-    public function max($column, bool $distinct = false)
+    #[Override]
+    public function max(string|Expression|Closure $column, bool $distinct = false): mixed
     {
         parent::max($column, $distinct);
+
         return $this->getColumnResult();
     }
 
-    protected function getColumnResult()
+    protected function getColumnResult(): mixed
     {
         $compiler = $this->connection->getCompiler();
+
         return $this->connection->column($compiler->select($this->sql), $compiler->getParams());
     }
 }
