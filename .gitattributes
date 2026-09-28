@@ -1,4 +1,10 @@
 tests/          export-ignore
+.github/        export-ignore
 phpunit.xml     export-ignore
+phpstan.neon    export-ignore
+psalm.xml       export-ignore
+phpcs.xml       export-ignore
+phpmd.xml       export-ignore
+CLAUDE.md       export-ignore
 .gitattributes  export-ignore
 .gitignore      export-ignore

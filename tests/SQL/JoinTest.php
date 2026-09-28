@@ -25,53 +25,53 @@ class JoinTest extends BaseClass
     public function testDefaultJoin()
     {
         $expected = 'SELECT * FROM "users" INNER JOIN "profiles" ON "users"."id" = "profiles"."id"';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->join('profiles', function (Join $join) {
                 $join->on('users.id', 'profiles.id');
             })
-            ->select();
+            ->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testDefaultJoinGTE()
     {
         $expected = 'SELECT * FROM "users" INNER JOIN "profiles" ON "users"."id" >= "profiles"."id"';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->join('profiles', function (Join $join) {
                 $join->on('users.id', 'profiles.id', '>=');
             })
-            ->select();
+            ->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testDefaultJoinAnd()
     {
         $expected = 'SELECT * FROM "users" INNER JOIN "profiles" ON "users"."id" = "profiles"."id" AND "users"."email" = "profile"."primary_email"';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->join('profiles', function (Join $join) {
                 $join->on('users.id', 'profiles.id')
                     ->andOn('users.email', 'profile.primary_email');
             })
-            ->select();
+            ->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testDefaultJoinOr()
     {
         $expected = 'SELECT * FROM "users" INNER JOIN "profiles" ON "users"."id" = "profiles"."id" OR "users"."email" = "profile"."primary_email"';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->join('profiles', function (Join $join) {
                 $join->on('users.id', 'profiles.id')
                     ->orOn('users.email', 'profile.primary_email');
             })
-            ->select();
+            ->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testDefaultJoinGroup()
     {
         $expected = 'SELECT * FROM "users" INNER JOIN "profiles" ON "users"."id" = "profiles"."id" AND ("users"."email" = "profiles"."primary_email" OR "users"."email" = "profiles"."secondary_email")';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->join('profiles', function (Join $join) {
                 $join->on('users.id', 'profiles.id')
                     ->andOn(function (Join $join) {
@@ -79,40 +79,40 @@ class JoinTest extends BaseClass
                             ->orOn('users.email', 'profiles.secondary_email');
                     });
             })
-            ->select();
+            ->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testDefaultJoinAlias()
     {
         $expected = 'SELECT * FROM "users" INNER JOIN "profiles" AS "p" ON "users"."id" = "p"."id"';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->join(['profiles' => 'p'], function (Join $join) {
                 $join->on('users.id', 'p.id');
             })
-            ->select();
+            ->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testCrossJoin()
     {
         $expected = 'SELECT * FROM "users" CROSS JOIN "profiles"';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->crossJoin('profiles')
-            ->select();
+            ->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testJoinExpression()
     {
         $expected = 'SELECT * FROM "users" INNER JOIN "profiles" ON "users"."id" = LEN("profiles"."name")';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->join('profiles', function (Join $join) {
                 $join->on(function (Expression $expr) {
                     $expr->column('users.id')->{'='}->len('profiles.name');
                 }, true);
             })
-            ->select();
+            ->select());
         $this->assertEquals($expected, $actual);
     }
 }

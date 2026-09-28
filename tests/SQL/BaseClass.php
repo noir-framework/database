@@ -37,4 +37,15 @@ class BaseClass extends TestCase
     {
         $this->db = static::$database;
     }
+
+    /**
+     * Runs a query builder chain and returns the SQL it sent to the connection.
+     */
+    protected function sql(\Closure $query): string
+    {
+        $query();
+        /** @var Connection $connection */
+        $connection = $this->db->getConnection();
+        return $connection->lastSql();
+    }
 }

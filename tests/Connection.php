@@ -19,31 +19,41 @@ namespace Opis\Database\Test;
 
 class Connection extends \Opis\Database\Connection
 {
+    private string $lastSql = '';
 
-    public function __construct($driver)
+    public function __construct(string $driver)
     {
         parent::__construct('');
         $this->driver = $driver;
-        //$this->setWrapperFormat('`%s`');
     }
 
     public function query(string $sql, array $params = [])
     {
-        return $this->replaceParams($sql, $params);
+        return $this->record($sql, $params);
     }
 
     public function column(string $sql, array $params = [])
     {
-        return $this->replaceParams($sql, $params);
+        return $this->record($sql, $params);
     }
 
     public function count(string $sql, array $params = [])
     {
-        return $this->replaceParams($sql, $params);
+        return $this->record($sql, $params);
     }
 
     public function command(string $sql, array $params = [])
     {
-        return $this->replaceParams($sql, $params);
+        return $this->record($sql, $params);
+    }
+
+    public function lastSql(): string
+    {
+        return $this->lastSql;
+    }
+
+    private function record(string $sql, array $params): string
+    {
+        return $this->lastSql = $this->replaceParams($sql, $params);
     }
 }

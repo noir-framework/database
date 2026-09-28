@@ -1,8 +1,8 @@
 {
-    "name": "opis/database",
-    "description": "A database abstraction layer over PDO, that provides a powerful and intuitive query builder, bundled with an easy to use schema builder",
-    "keywords": ["database", "query", "abstraction layer", "mysql", "postgre", "sql", "sqlite",  "query builder", "schema builder"],
-    "homepage": "https://opis.io/database",
+    "name": "noirapi/database",
+    "description": "A strictly typed database abstraction layer over PDO with a query builder and a schema builder (fork of opis/database)",
+    "keywords": ["database", "query", "abstraction layer", "mysql", "postgresql", "sql", "sqlite", "sqlserver", "query builder", "schema builder"],
+    "homepage": "https://github.com/noir-framework/database",
     "license": "Apache-2.0",
     "authors": [
         {
@@ -12,18 +12,31 @@
         {
             "name": "Sorin Sarca",
             "email": "sarca_sorin@hotmail.com"
+        },
+        {
+            "name": "deba12",
+            "email": "int986@gmail.com",
+            "homepage": "https://github.com/deba12"
         }
     ],
-    "scripts": {
-      "test": "vendor/bin/phpunit"
-    },
     "require": {
-        "php": "^8.2",
+        "php": "^8.4",
         "ext-pdo": "*"
     },
     "require-dev": {
-        "phpunit/phpunit": "^6.5 || ^7.0 || ^8.0 || ^9.0",
-        "symfony/yaml": "^3.4"
+        "ext-pdo_sqlite": "*",
+        "pdepend/pdepend": "3.x-dev@dev",
+        "phpmd/phpmd": "3.x-dev@dev",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpunit/phpunit": "^12.0",
+        "slevomat/coding-standard": "^8.22",
+        "squizlabs/php_codesniffer": "^4.0",
+        "symfony/yaml": "^7.0",
+        "vimeo/psalm": "^7.0.0-beta22"
+    },
+    "replace": {
+        "opis/database": "*"
     },
     "autoload": {
         "psr-4": {
@@ -35,9 +48,30 @@
             "Opis\\Database\\Test\\": "tests/"
         }
     },
+    "scripts": {
+        "test": "phpunit",
+        "phpstan": "phpstan analyse --memory-limit=1G",
+        "psalm": "psalm --no-cache",
+        "cs": "phpcs",
+        "cs-fix": "phpcbf",
+        "phpmd": "phpmd src text phpmd.xml",
+        "check": [
+            "@cs",
+            "@phpstan",
+            "@psalm",
+            "@phpmd",
+            "@test"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
     "extra": {
         "branch-alias": {
-            "dev-master": "4.1.x-dev"
+            "dev-5.x": "5.0.x-dev"
         }
     }
 }

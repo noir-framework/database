@@ -28,33 +28,33 @@ class HavingTest extends BaseClass
     public function testColumn()
     {
         $expected = 'SELECT * FROM "users" GROUP BY "age" HAVING COUNT("friends") > 5';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->groupBy('age')
             ->having('friends', function (HavingExpression $column) {
                 $column->count()->gt(5);
             })
-            ->select();
+            ->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testExpression()
     {
         $expected = 'SELECT * FROM "users" GROUP BY "age" HAVING COUNT("friends" * 2) > 5';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->groupBy('age')
             ->having(function (Expression $expr) {
                 $expr->column('friends')->{'*'}->value(2);
             }, function (HavingExpression $column) {
                 $column->count()->gt(5);
             })
-            ->select();
+            ->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testNested()
     {
-        $actual = 'SELECT COUNT("orders"."id") AS "total_orders", "customers"."name" AS "name" FROM "customers" LEFT JOIN "orders" ON "customers"."id" = "orders"."cid" GROUP BY LCASE("customers"."name") HAVING COUNT("orders"."id") > 10 AND (SUM("orders"."value") >= 1000 OR MIN(ROUND("orders"."value", 2)) >= 500)';
-        $expected = $this->db->from('customers')
+        $expected = 'SELECT COUNT("orders"."id") AS "total_orders", "customers"."name" AS "name" FROM "customers" LEFT JOIN "orders" ON "customers"."id" = "orders"."cid" GROUP BY LCASE("customers"."name") HAVING COUNT("orders"."id") > 10 AND (SUM("orders"."value") >= 1000 OR MIN(ROUND("orders"."value", 2)) >= 500)';
+        $actual = $this->sql(fn () => $this->db->from('customers')
             ->leftJoin('orders', function(Join $join){
                 $join->on('customers.id', 'orders.cid');
             })
@@ -77,7 +77,7 @@ class HavingTest extends BaseClass
             ->select(function(ColumnExpression $include){
                 $include->count('orders.id', 'total_orders')
                     ->column('customers.name', 'name');
-            });
+            }));
         $this->assertEquals($expected, $actual);
     }
 }

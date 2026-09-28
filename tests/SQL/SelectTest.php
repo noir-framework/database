@@ -25,108 +25,108 @@ class SelectTest extends BaseClass
     public function testSelect()
     {
         $expected = 'SELECT * FROM "users"';
-        $actual = $this->db->from('users')->select();
+        $actual = $this->sql(fn () => $this->db->from('users')->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectDistinct()
     {
         $expected = 'SELECT DISTINCT * FROM "users"';
-        $actual = $this->db->from('users')->distinct()->select();
+        $actual = $this->sql(fn () => $this->db->from('users')->distinct()->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectSingleColumn()
     {
         $expected = 'SELECT "name" FROM "users"';
-        $actual = $this->db->from('users')->select('name');
+        $actual = $this->sql(fn () => $this->db->from('users')->select('name'));
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectSingleColumnArray()
     {
         $expected = 'SELECT "name" FROM "users"';
-        $actual = $this->db->from('users')->select(['name']);
+        $actual = $this->sql(fn () => $this->db->from('users')->select(['name']));
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectMultipleColumns()
     {
         $expected = 'SELECT "name", "age" FROM "users"';
-        $actual = $this->db->from('users')->select(['name', 'age']);
+        $actual = $this->sql(fn () => $this->db->from('users')->select(['name', 'age']));
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectColumnsAliases()
     {
         $expected = 'SELECT "name" AS "n", "age" AS "a" FROM "users"';
-        $actual = $this->db->from('users')->select(['name' => 'n', 'age' => 'a']);
+        $actual = $this->sql(fn () => $this->db->from('users')->select(['name' => 'n', 'age' => 'a']));
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectColumnsFirstAliased()
     {
         $expected = 'SELECT "name" AS "n", "age" FROM "users"';
-        $actual = $this->db->from('users')->select(['name' => 'n', 'age']);
+        $actual = $this->sql(fn () => $this->db->from('users')->select(['name' => 'n', 'age']));
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectColumnsLastAliased()
     {
         $expected = 'SELECT "name", "age" AS "a" FROM "users"';
-        $actual = $this->db->from('users')->select(['name', 'age' => 'a']);
+        $actual = $this->sql(fn () => $this->db->from('users')->select(['name', 'age' => 'a']));
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectFromMultipleTables()
     {
         $expected = 'SELECT * FROM "users", "sites"';
-        $actual = $this->db->from(['users', 'sites'])->select();
+        $actual = $this->sql(fn () => $this->db->from(['users', 'sites'])->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectFromMultipleTablesAliased()
     {
         $expected = 'SELECT * FROM "users" AS "u", "sites" AS "s"';
-        $actual = $this->db->from(['users' => 'u', 'sites' => 's'])->select();
+        $actual = $this->sql(fn () => $this->db->from(['users' => 'u', 'sites' => 's'])->select());
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectColumnsFromMultipleTablesAliased()
     {
         $expected = 'SELECT "u"."name", "s"."address" FROM "users" AS "u", "sites" AS "s"';
-        $actual = $this->db->from(['users' => 'u', 'sites' => 's'])->select(['u.name', 's.address']);
+        $actual = $this->sql(fn () => $this->db->from(['users' => 'u', 'sites' => 's'])->select(['u.name', 's.address']));
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectAliasedColumnsFromMultipleTablesAliased()
     {
         $expected = 'SELECT "u"."name" AS "n", "s"."address" AS "s" FROM "users" AS "u", "sites" AS "s"';
-        $actual = $this->db->from(['users' => 'u', 'sites' => 's'])->select(['u.name' => 'n', 's.address' => 's']);
+        $actual = $this->sql(fn () => $this->db->from(['users' => 'u', 'sites' => 's'])->select(['u.name' => 'n', 's.address' => 's']));
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectAliasedSingleExpression()
     {
         $expected = 'SELECT LCASE("name") AS "lower_name" FROM "users"';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->select(function (ColumnExpression $expr) {
                 $expr->lcase('name', 'lower_name');
-            });
+            }));
         $this->assertEquals($expected, $actual);
     }
 
     public function testSelectAliasedExpressionMultiple()
     {
         $expected = 'SELECT "name", LEN("name") AS "name_length", "age" AS "alias_age" FROM "users"';
-        $actual = $this->db->from('users')
+        $actual = $this->sql(fn () => $this->db->from('users')
             ->select([
                 'name',
                 'name_length' => function (Expression $expr) {
                     $expr->len('name');
                 },
                 'age' => 'alias_age',
-            ]);
+            ]));
         $this->assertEquals($expected, $actual);
     }
 
