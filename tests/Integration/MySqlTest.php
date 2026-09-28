@@ -9,6 +9,7 @@ use Noirapi\Database\Database;
 use Noirapi\Database\Schema\AlterTable;
 use Noirapi\Database\Schema\CreateTable;
 use Noirapi\Database\SQL\Expression;
+use Noirapi\Database\SQL\Interval;
 use Noirapi\Database\SQL\SelectStatement;
 use PDOException;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
@@ -190,6 +191,35 @@ final class MySqlTest extends TestCase
         }
         // the early break closed the cursor, so the connection is usable again
         $this->assertSame(500, $this->db->from('t_users')->count());
+    }
+
+    public function testFunctionsAndDates(): void
+    {
+        $this->db->schema()->alter('t_users', static function (AlterTable $table): void {
+            $table->dateTime('seen');
+            $table->binary('ip')->size('tiny');
+        });
+        $this->db->insertMany([
+            ['name' => 'Ann', 'age' => 30, 'seen' => static fn (Expression $e) => $e->ago(10, Interval::Day), 'ip' => static fn (Expression $e) => $e->inet6Aton('2001:db8::1')],
+            ['name' => 'Bob', 'age' => 1, 'seen' => static fn (Expression $e) => $e->ago(2, Interval::Hour), 'ip' => static fn (Expression $e) => $e->inet6Aton('10.0.0.1')],
+        ])->into('t_users');
+
+        $this->assertSame(
+            [['Bob', '10.0.0.1']],
+            $this->db->from('t_users')
+                ->where('seen')->gte(static fn (Expression $e) => $e->ago(1, Interval::Day))
+                ->select(['name', 'ip' => static fn (Expression $e) => $e->inet6Ntoa('ip')])
+                ->fetchNum()
+                ->all(),
+        );
+        $this->assertSame('Ann', $this->db->from('t_users')->where('ip')->is(static fn (Expression $e) => $e->inet6Aton('2001:db8::1'))->column('name'));
+        $this->assertSame(
+            1,
+            $this->db->from('t_users')
+                ->where(static fn (Expression $e) => $e->dateAdd('seen', Expression::fromColumn('age'), Interval::Day), true)
+                ->gt(static fn (Expression $e) => $e->fromNow(15, Interval::Day))
+                ->count(),
+        );
     }
 
     private function dropAll(): void

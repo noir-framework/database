@@ -60,6 +60,8 @@ class Connection
 
     private const array SQL_DIALECTS = [
         'mysql' => SQL\Compiler\MySQL::class,
+        'pgsql' => SQL\Compiler\PostgreSQL::class,
+        'sqlite' => SQL\Compiler\SQLite::class,
         'dblib' => SQL\Compiler\SQLServer::class,
         'mssql' => SQL\Compiler\SQLServer::class,
         'sqlsrv' => SQL\Compiler\SQLServer::class,

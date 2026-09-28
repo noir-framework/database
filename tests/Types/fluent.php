@@ -9,6 +9,7 @@ namespace Noirapi\Database\Test\Types;
 use Noirapi\Database\Database;
 use Noirapi\Database\SQL\Expression;
 use Noirapi\Database\SQL\Insert;
+use Noirapi\Database\SQL\Interval;
 use Noirapi\Database\SQL\Query;
 use Noirapi\Database\SQL\Select;
 use Noirapi\Database\SQL\Update;
@@ -62,5 +63,7 @@ function check(Database $db): void
     assertType(Query::class, $db->from('users')->orWhereExpression(static fn (Expression $e) => $e->column('a'))->is(null));
     assertType(Query::class, $db->from('users')->where('a')->isNotNull());
     assertType(Expression::class, Expression::fromCall('NOW'));
+    assertType(Expression::class, (new Expression())->ago(4, Interval::Day));
+    assertType(Query::class, $db->from('orders')->where('added_on')->atMost(static fn (Expression $e) => $e->ago(4, Interval::Day)));
     assertType(Expression::class, (new Expression())->call('COALESCE', 1)->call('NOW'));
 }

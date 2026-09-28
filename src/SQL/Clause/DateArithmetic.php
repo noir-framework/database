@@ -21,18 +21,19 @@ declare(strict_types=1);
 
 namespace Noirapi\Database\SQL\Clause;
 
-enum FunctionName: string
+use Noirapi\Database\SQL\Expression;
+use Noirapi\Database\SQL\Interval;
+
+/**
+ * `date + amount unit` (or minus), compiled per dialect: DATE_ADD, DATEADD, datetime(), make_interval.
+ */
+final readonly class DateArithmetic implements ExpressionPart
 {
-    case Ucase = 'UCASE';
-    case Lcase = 'LCASE';
-    case Mid = 'MID';
-    case Len = 'LEN';
-    case Round = 'ROUND';
-    case Now = 'NOW';
-    case Format = 'FORMAT';
-    case CurrentDate = 'CURRENT_DATE';
-    case Inet6Aton = 'INET6_ATON';
-    case Inet6Ntoa = 'INET6_NTOA';
-    case InetAton = 'INET_ATON';
-    case InetNtoa = 'INET_NTOA';
+    public function __construct(
+        public string|Expression $date,
+        public int|Expression $amount,
+        public Interval $unit,
+        public bool $subtract = false,
+    ) {
+    }
 }

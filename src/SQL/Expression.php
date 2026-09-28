@@ -28,6 +28,7 @@ use Noirapi\Database\SQL\Clause\AggregateFunction;
 use Noirapi\Database\SQL\Clause\AggregateName;
 use Noirapi\Database\SQL\Clause\CallPart;
 use Noirapi\Database\SQL\Clause\ColumnPart;
+use Noirapi\Database\SQL\Clause\DateArithmetic;
 use Noirapi\Database\SQL\Clause\ExpressionPart;
 use Noirapi\Database\SQL\Clause\FunctionName;
 use Noirapi\Database\SQL\Clause\GroupPart;
@@ -216,9 +217,103 @@ class Expression
         );
     }
 
+    /**
+     * Current date and time: NOW() on MySQL/PostgreSQL, GETDATE() on SQL Server,
+     * datetime('now') on SQLite (UTC there).
+     */
     public function now(): static
     {
         return $this->addExpression(new SqlFunction(FunctionName::Now));
+    }
+
+    /**
+     * Current date without time: CURRENT_DATE (SQL Server: CAST(GETDATE() AS DATE)).
+     */
+    public function currentDate(): static
+    {
+        return $this->addExpression(new SqlFunction(FunctionName::CurrentDate));
+    }
+
+    /**
+     * `$date + $amount $unit`, e.g. `$e->dateAdd('created_at', 30, Interval::Day)`.
+     *
+     * @param ColumnArg $date A column name or an expression (`fn ($e) => $e->now()`)
+     * @param int|Expression|(Closure(Expression): mixed) $amount A number (bound as a parameter) or an expression
+     */
+    public function dateAdd(string|self|Closure $date, int|self|Closure $amount, Interval $unit): static
+    {
+        return $this->addExpression(new DateArithmetic(self::normalize($date), self::amount($amount), $unit));
+    }
+
+    /**
+     * `$date - $amount $unit`.
+     *
+     * @param ColumnArg $date A column name or an expression
+     * @param int|Expression|(Closure(Expression): mixed) $amount A number (bound as a parameter) or an expression
+     */
+    public function dateSub(string|self|Closure $date, int|self|Closure $amount, Interval $unit): static
+    {
+        return $this->addExpression(new DateArithmetic(self::normalize($date), self::amount($amount), $unit, true));
+    }
+
+    /**
+     * Now minus the interval: `->where('added_on')->atMost(fn ($e) => $e->ago(4, Interval::Day))`.
+     *
+     * @param int|Expression|(Closure(Expression): mixed) $amount
+     */
+    public function ago(int|self|Closure $amount, Interval $unit): static
+    {
+        return $this->dateSub((new self())->now(), $amount, $unit);
+    }
+
+    /**
+     * Now plus the interval.
+     *
+     * @param int|Expression|(Closure(Expression): mixed) $amount
+     */
+    public function fromNow(int|self|Closure $amount, Interval $unit): static
+    {
+        return $this->dateAdd((new self())->now(), $amount, $unit);
+    }
+
+    /**
+     * INET6_ATON(value): IPv4/IPv6 text to VARBINARY(16). MySQL/MariaDB only.
+     *
+     * @param mixed $value A value (bound as a parameter) or an Expression / closure
+     */
+    public function inet6Aton(mixed $value): static
+    {
+        return $this->addExpression(new SqlFunction(FunctionName::Inet6Aton, self::valueArgument($value)));
+    }
+
+    /**
+     * INET6_NTOA(column): VARBINARY(16) to text. MySQL/MariaDB only.
+     *
+     * @param ColumnArg $column
+     */
+    public function inet6Ntoa(string|self|Closure $column): static
+    {
+        return $this->addExpression(new SqlFunction(FunctionName::Inet6Ntoa, self::normalize($column)));
+    }
+
+    /**
+     * INET_ATON(value): dotted IPv4 to an integer. MySQL/MariaDB only.
+     *
+     * @param mixed $value A value (bound as a parameter) or an Expression / closure
+     */
+    public function inetAton(mixed $value): static
+    {
+        return $this->addExpression(new SqlFunction(FunctionName::InetAton, self::valueArgument($value)));
+    }
+
+    /**
+     * INET_NTOA(column): integer to dotted IPv4. MySQL/MariaDB only.
+     *
+     * @param ColumnArg $column
+     */
+    public function inetNtoa(string|self|Closure $column): static
+    {
+        return $this->addExpression(new SqlFunction(FunctionName::InetNtoa, self::normalize($column)));
     }
 
     /**
@@ -288,6 +383,32 @@ class Expression
         $this->expressions[] = $part;
 
         return $this;
+    }
+
+    /**
+     * @param int|Expression|(Closure(Expression): mixed) $amount
+     */
+    private static function amount(int|self|Closure $amount): int|self
+    {
+        if ($amount instanceof Closure) {
+            /** @var Closure(Expression): mixed $amount */
+            return self::fromClosure($amount);
+        }
+
+        return $amount;
+    }
+
+    /**
+     * A function argument that is a value unless it is already an expression.
+     */
+    private static function valueArgument(mixed $value): self
+    {
+        if ($value instanceof Closure) {
+            /** @var Closure(Expression): mixed $value */
+            return self::fromClosure($value);
+        }
+
+        return $value instanceof self ? $value : (new self())->value($value);
     }
 
     /**

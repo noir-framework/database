@@ -20,6 +20,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Views: `Schema::createView()`, `dropView()`, `getViews()`, `hasView()`; values in the view's
   query are inlined with `PDO::quote()` (`SQL\Compiler::selectInline()`)
 - Stream resources are bound as `PDO::PARAM_LOB`
+- Date/time helpers on `Expression`: `dateAdd()`, `dateSub()`, `ago()`, `fromNow()` with the
+  `SQL\Interval` enum (Second ... Year), and `currentDate()`; compiled per dialect (`DATE_ADD`,
+  `make_interval`, `datetime()`, `DATEADD`)
+- `inet6Aton()`, `inet6Ntoa()`, `inetAton()`, `inetNtoa()` on `Expression` (MySQL/MariaDB; other
+  drivers throw `LogicException`)
+- SQL compilers for PostgreSQL and SQLite (`SQL\Compiler\PostgreSQL`, `SQL\Compiler\SQLite`)
 - `ResultSet::lazy()` (from opis/database PR #103) yields rows one at a time, and `ResultSet` is
   iterable (`foreach ($query->select() as $row)`); both keep the `fetchClass()` row type
 - `stream()` on queries and `Connection::stream()`: unbuffered MySQL/MariaDB results for huge
@@ -35,6 +41,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `CHANGE old new <type>`, which dropped NOT NULL, defaults and comments
 - `SQL\Compiler::handleInsertValues()` replaced by `handleInsertRows()`
 - `Expression` property writes throw `LogicException`
+- `ucase()`, `lcase()`, `mid()`, `len()`, `now()` compile to functions that exist on each database:
+  UPPER/LOWER/SUBSTR/LENGTH on PostgreSQL and SQLite, UPPER/LOWER/SUBSTRING/GETDATE() on SQL Server,
+  `datetime('now')` on SQLite. MySQL and the generic compiler are unchanged
 
 ### Fixed
 

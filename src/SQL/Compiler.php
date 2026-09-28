@@ -29,6 +29,7 @@ use Noirapi\Database\SQL\Clause\AggregateFunction;
 use Noirapi\Database\SQL\Clause\CallPart;
 use Noirapi\Database\SQL\Clause\ColumnPart;
 use Noirapi\Database\SQL\Clause\Condition;
+use Noirapi\Database\SQL\Clause\DateArithmetic;
 use Noirapi\Database\SQL\Clause\ExpressionPart;
 use Noirapi\Database\SQL\Clause\FunctionName;
 use Noirapi\Database\SQL\Clause\GroupPart;
@@ -71,6 +72,7 @@ use function is_int;
 use function is_string;
 use function sprintf;
 use function str_replace;
+use function strtoupper;
 
 /**
  * Generic ANSI-ish SQL compiler; dialects override the parts that differ.
@@ -291,6 +293,7 @@ class Compiler
                 $expr instanceof AggregateFunction => $this->handleAggregateFunction($expr),
                 $expr instanceof SqlFunction => $this->handleSqlFunction($expr),
                 $expr instanceof CallPart => $this->handleCall($expr),
+                $expr instanceof DateArithmetic => $this->handleDateArithmetic($expr),
                 default => throw new LogicException('Unsupported expression part: ' . get_debug_type($expr)),
             };
         }
@@ -321,7 +324,32 @@ class Compiler
             FunctionName::Round => $this->sqlFunctionROUND($func),
             FunctionName::Now => $this->sqlFunctionNOW($func),
             FunctionName::Format => $this->sqlFunctionFORMAT($func),
+            FunctionName::CurrentDate => $this->sqlFunctionCURRENTDATE($func),
+            FunctionName::Inet6Aton, FunctionName::Inet6Ntoa, FunctionName::InetAton, FunctionName::InetNtoa
+                => $this->sqlFunctionINET($func),
         };
+    }
+
+    /**
+     * DATE_ADD(date, INTERVAL n UNIT) / DATE_SUB(...), the MySQL form.
+     */
+    protected function handleDateArithmetic(DateArithmetic $date): string
+    {
+        return ($date->subtract ? 'DATE_SUB(' : 'DATE_ADD(') . $this->wrap($date->date)
+            . ', INTERVAL ' . $this->dateAmount($date->amount) . ' ' . $this->intervalUnit($date->unit) . ')';
+    }
+
+    /**
+     * A bound number, or a parenthesized expression.
+     */
+    protected function dateAmount(int|Expression $amount): string
+    {
+        return is_int($amount) ? $this->param($amount) : '(' . $this->wrap($amount) . ')';
+    }
+
+    protected function intervalUnit(Interval $unit): string
+    {
+        return strtoupper($unit->name);
     }
 
     /**
@@ -710,5 +738,28 @@ class Compiler
     protected function sqlFunctionFORMAT(SqlFunction $func): string
     {
         return 'FORMAT(' . $this->wrap($func->column) . ', ' . $this->param($func->format) . ')';
+    }
+
+    protected function sqlFunctionCURRENTDATE(SqlFunction $func): string
+    {
+        return 'CURRENT_DATE';
+    }
+
+    /**
+     * INET6_ATON / INET6_NTOA / INET_ATON / INET_NTOA, which only MySQL and MariaDB have.
+     */
+    protected function sqlFunctionINET(SqlFunction $func): string
+    {
+        return $func->name->value . '(' . $this->wrap($func->column) . ')';
+    }
+
+    /**
+     * For dialects without a function: fails at compile time instead of sending invalid SQL.
+     *
+     * @throws LogicException Always
+     */
+    protected function unsupportedFunction(SqlFunction $func): never
+    {
+        throw new LogicException($func->name->value . '() is not supported by ' . static::class);
     }
 }

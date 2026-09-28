@@ -19,20 +19,18 @@
 
 declare(strict_types=1);
 
-namespace Noirapi\Database\SQL\Clause;
+namespace Noirapi\Database\SQL;
 
-enum FunctionName: string
+/**
+ * Unit of a date/time interval for Expression::dateAdd(), dateSub(), ago() and fromNow().
+ */
+enum Interval
 {
-    case Ucase = 'UCASE';
-    case Lcase = 'LCASE';
-    case Mid = 'MID';
-    case Len = 'LEN';
-    case Round = 'ROUND';
-    case Now = 'NOW';
-    case Format = 'FORMAT';
-    case CurrentDate = 'CURRENT_DATE';
-    case Inet6Aton = 'INET6_ATON';
-    case Inet6Ntoa = 'INET6_NTOA';
-    case InetAton = 'INET_ATON';
-    case InetNtoa = 'INET_NTOA';
+    case Second;
+    case Minute;
+    case Hour;
+    case Day;
+    case Week;
+    case Month;
+    case Year;
 }

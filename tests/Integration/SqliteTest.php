@@ -9,6 +9,7 @@ use Noirapi\Database\Database;
 use Noirapi\Database\Schema\AlterTable;
 use Noirapi\Database\Schema\CreateTable;
 use Noirapi\Database\SQL\Expression;
+use Noirapi\Database\SQL\Interval;
 use Noirapi\Database\SQL\Join;
 use Noirapi\Database\SQL\SelectStatement;
 use Noirapi\Database\SQL\Subquery;
@@ -279,5 +280,36 @@ final class SqliteTest extends TestCase
             $this->db->from('users')->orderBy('id')->limit(2)->stream('name')->lazy(\PDO::FETCH_COLUMN),
             false,
         ));
+    }
+
+    public function testFunctionsAndDates(): void
+    {
+        $this->db->schema()->alter('users', static function (AlterTable $table): void {
+            $table->dateTime('seen');
+        });
+        $this->db->update('users')->where('name')->is('Ann')->set(['seen' => static fn (Expression $e) => $e->ago(10, Interval::Day)]);
+        $this->db->update('users')->where('name')->is('Bob')->set(['seen' => static fn (Expression $e) => $e->ago(2, Interval::Hour)]);
+        $this->db->update('users')->where('name')->is('Cid')->set(['seen' => static fn (Expression $e) => $e->fromNow(1, Interval::Week)]);
+
+        $recent = $this->db->from('users')
+            ->where('seen')->gte(static fn (Expression $e) => $e->ago(1, Interval::Day))
+            ->andWhere('seen')->lt(static fn (Expression $e) => $e->now())
+            ->select(['name'])
+            ->fetchNum()
+            ->all();
+        $this->assertSame([['Bob']], $recent);
+
+        $row = $this->db->from('users')->where('name')->is('Ann')->select([
+            static fn (Expression $e) => $e->ucase('name'),
+            static fn (Expression $e) => $e->mid('name', 2),
+            static fn (Expression $e) => $e->len('name'),
+            static fn (Expression $e) => $e->dateAdd('seen', Expression::fromColumn('age'), Interval::Day),
+        ])->fetchNum()->first();
+        $this->assertIsArray($row);
+        $this->assertSame(['ANN', 'nn', 3], array_slice($row, 0, 3));
+        $this->assertSame(
+            (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->modify('+20 days')->format('Y-m-d'),
+            substr((string) $row[3], 0, 10),
+        );
     }
 }

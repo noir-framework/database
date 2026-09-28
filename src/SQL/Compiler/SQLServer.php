@@ -22,7 +22,10 @@ declare(strict_types=1);
 namespace Noirapi\Database\SQL\Compiler;
 
 use LogicException;
+use Noirapi\Database\SQL\Clause\DateArithmetic;
+use Noirapi\Database\SQL\Clause\SqlFunction;
 use Noirapi\Database\SQL\Compiler;
+use Noirapi\Database\SQL\Interval;
 use Noirapi\Database\SQL\SQLStatement;
 use Override;
 
@@ -31,6 +34,7 @@ use function array_values;
 use function implode;
 use function is_string;
 use function ltrim;
+use function strtolower;
 use function trim;
 
 class SQLServer extends Compiler
@@ -155,5 +159,64 @@ class SQLServer extends Compiler
         $sql .= $this->handleWheres($update->getWheres());
 
         return $sql;
+    }
+
+    #[Override]
+    protected function sqlFunctionUCASE(SqlFunction $func): string
+    {
+        return 'UPPER(' . $this->wrap($func->column) . ')';
+    }
+
+    #[Override]
+    protected function sqlFunctionLCASE(SqlFunction $func): string
+    {
+        return 'LOWER(' . $this->wrap($func->column) . ')';
+    }
+
+    /**
+     * SUBSTRING() needs a length; without one the rest of the string is taken.
+     */
+    #[Override]
+    protected function sqlFunctionMID(SqlFunction $func): string
+    {
+        $column = $this->wrap($func->column);
+
+        return 'SUBSTRING(' . $column . ', ' . $this->param($func->start) . ', '
+            . ($func->length > 0 ? $this->param($func->length) : 'LEN(' . $column . ')') . ')';
+    }
+
+    #[Override]
+    protected function sqlFunctionNOW(SqlFunction $func): string
+    {
+        return 'GETDATE()';
+    }
+
+    #[Override]
+    protected function sqlFunctionCURRENTDATE(SqlFunction $func): string
+    {
+        return 'CAST(GETDATE() AS DATE)';
+    }
+
+    #[Override]
+    protected function sqlFunctionINET(SqlFunction $func): string
+    {
+        $this->unsupportedFunction($func);
+    }
+
+    #[Override]
+    protected function handleDateArithmetic(DateArithmetic $date): string
+    {
+        $amount = $this->dateAmount($date->amount);
+        if ($date->subtract) {
+            $amount = '-' . $amount;
+        }
+
+        return 'DATEADD(' . $this->intervalUnit($date->unit) . ', ' . $amount . ', ' . $this->wrap($date->date) . ')';
+    }
+
+    #[Override]
+    protected function intervalUnit(Interval $unit): string
+    {
+        return strtolower($unit->name);
     }
 }
