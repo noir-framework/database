@@ -4,6 +4,7 @@
 
     <file>src</file>
     <file>tests</file>
+    <file>compat</file>
 
     <arg name="basepath" value="." />
     <arg name="colors" />

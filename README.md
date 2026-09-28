@@ -1,57 +1,36 @@
-Opis Database
-=============
-[![Tests](https://github.com/opis/database/workflows/Tests/badge.svg)](https://github.com/opis/database/actions)
-[![Latest Stable Version](https://poser.pugx.org/opis/database/version.png)](https://packagist.org/packages/opis/database)
-[![Latest Unstable Version](https://poser.pugx.org/opis/database/v/unstable.png)](https://packagist.org/packages/opis/database)
-[![License](https://poser.pugx.org/opis/database/license.png)](https://packagist.org/packages/opis/database)
+noirapi/database
+================
+[![Quality](https://github.com/noir-framework/database/actions/workflows/tests.yml/badge.svg)](https://github.com/noir-framework/database/actions)
 
-Database abstraction layer
--------------------------
+A strictly typed PDO abstraction layer with a fluent query builder and a schema builder,
+forked from [opis/database](https://github.com/opis/database) 4.x.
 
-**Opis Database** is a library that implements an abstraction layer over the PDO extension, 
-by providing a powerful query builder along with an easy to use schema builder. 
-The aim of the library is to provide an unified way of interacting with databases, 
-no matter of the underlying relational database management system.
+- PHP 8.4+, native types everywhere, `declare(strict_types=1)`
+- Generic fluent API: `$db->from('users')->where('id')->is(1)->select()->fetchClass(User::class)->first()`
+  is typed as `User|false` for PHPStan and Psalm
+- Checked with PHPStan (level 10 + strict rules), Psalm (level 1), phpcs (PSR-12 + Slevomat) and PHPMD
+- Dialects: MySQL, PostgreSQL, SQLite and Microsoft SQL Server
 
-Currently, we are officially supporting MySQL, PostgreSQL, Microsoft SQL, and SQLite. 
-We also provide experimental support - without any commitment regarding bug fixes and updates - for Firebird, 
-IBM DB2, Oracle, and NuoDB query builder.
-
-## Documentation
-
-The full documentation for this library can be found [here][documentation]
-
-## License
-
-**Opis Database** is licensed under the [Apache License, Version 2.0][apache_license]
-
-## Requirements
-
-* PHP 7 or higher
-* PDO
+Upgrading from `opis/database`? See [UPGRADE.md](UPGRADE.md).
 
 ## Installation
 
-**Opis Database** is available on [Packagist] and it can be installed from a 
-command line interface by using [Composer]. 
-
-```bash
-composer require opis/database
-```
-
-Or you could directly reference it into your `composer.json` file as a dependency
-
 ```json
-{
-    "require": {
-        "opis/database": "^4.0"
-    }
+"repositories": [
+    { "type": "git", "url": "git@github.com:noir-framework/database.git" }
+],
+"require": {
+    "noirapi/database": "^5.0@beta"
 }
 ```
 
+## Development
 
-[documentation]: https://opis.io/database
-[apache_license]: https://www.apache.org/licenses/LICENSE-2.0 "Apache License"
-[Packagist]: https://packagist.org/packages/opis/database "Packagist"
-[Composer]: https://getcomposer.org "Composer"
+```bash
+composer check      # phpcs, PHPStan, Psalm, PHPMD and PHPUnit
+composer test       # PHPUnit only
+```
 
+## License
+
+Apache License, Version 2.0. Original work copyright Zindex Software (see NOTICE).

@@ -1,0 +1,65 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Rewrites Opis\Database references to Noirapi\Database in an application.
+ *
+ *     vendor/bin/noirapi-database-migrate app tests            # dry run: list changes
+ *     vendor/bin/noirapi-database-migrate --write app tests    # apply them
+ *
+ * Handles PHP code and PHPStan/Psalm/phpcs configs (.php, .phtml, .latte, .neon, .xml),
+ * including regex-escaped forms such as Opis\\Database\\SQL in phpstan ignoreErrors.
+ */
+
+$args = array_slice($argv, 1);
+$write = in_array('--write', $args, true);
+$paths = array_values(array_filter($args, static fn (string $arg): bool => $arg !== '--write'));
+
+if ($paths === []) {
+    fwrite(STDERR, "Usage: noirapi-database-migrate [--write] <path>...\n");
+    exit(2);
+}
+
+$extensions = ['php', 'phtml', 'latte', 'neon', 'xml', 'dist'];
+$replacements = [
+    'Opis\\\\\\\\Database' => 'Noirapi\\\\\\\\Database', // Opis\\\\Database (double-escaped regex in neon)
+    'Opis\\\\Database' => 'Noirapi\\\\Database',         // Opis\\Database (escaped in strings / regex)
+    'Opis\\Database' => 'Noirapi\\Database',             // Opis\Database
+];
+
+$changed = 0;
+foreach ($paths as $path) {
+    $files = is_dir($path)
+        ? new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS))
+        : [new SplFileInfo($path)];
+
+    foreach ($files as $file) {
+        if (!$file instanceof SplFileInfo || !in_array($file->getExtension(), $extensions, true)) {
+            continue;
+        }
+        if (preg_match('#(^|/)(vendor|temp|cache|\.git)/#', $file->getPathname()) === 1) {
+            continue;
+        }
+
+        $content = file_get_contents($file->getPathname());
+        if ($content === false || !str_contains($content, 'Opis')) {
+            continue;
+        }
+
+        $updated = strtr($content, $replacements);
+        if ($updated === $content) {
+            continue;
+        }
+
+        $changed++;
+        $count = substr_count($content, 'Opis') - substr_count($updated, 'Opis');
+        echo ($write ? 'updated ' : 'would update ') . $file->getPathname() . " ($count)\n";
+        if ($write) {
+            file_put_contents($file->getPathname(), $updated);
+        }
+    }
+}
+
+echo $changed . ' file(s) ' . ($write ? 'updated' : 'to update; re-run with --write to apply') . "\n";

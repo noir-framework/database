@@ -7,3 +7,10 @@ Zindex Software (http://zindex.software).
 This software was originally developed by Marius Sarca and Sorin Sarca
 (Copyright 2013-2018). The copyright info was changed with the permission
 of the original authors.
+
+noirapi/database
+Copyright 2026 noir-framework
+
+This product is a modified version of Opis Database 4.x. It was renamed to the
+Noirapi\Database namespace, rewritten for PHP 8.4 with native types, and the
+Oracle, Firebird, DB2 and NuoDB dialects were removed.

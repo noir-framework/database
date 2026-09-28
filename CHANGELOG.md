@@ -2,6 +2,44 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## v5.0.0-beta1 - 2026-09-28
+
+First release as `noirapi/database`, a fork of `opis/database` 4.x. See [UPGRADE.md](UPGRADE.md).
+
+### Changed
+
+- Package renamed to `noirapi/database`; requires PHP ^8.4; replaces `opis/database`
+- Namespace `Opis\Database` renamed to `Noirapi\Database`. The old names keep working through
+  lazy aliases that raise a silenced `E_USER_DEPRECATED`; they will be removed in 6.0
+- Native types on every property, parameter and return value; `declare(strict_types=1)` everywhere
+- Fluent API is generic: `where('a')` returns `Where<static>`, whose comparisons return the calling
+  statement, so chains such as `$db->from('t')->where('a')->is(1)->select()` are fully typed
+- `ResultSet` is generic over the row type: `fetchClass(User::class)->first()` is `User|false`
+- Clauses are stored as readonly value objects (`SQL\Clause\*`, `Schema\AlterCommand`) and
+  compiled with `match`, replacing `['type' => ...]` arrays and `$this->{$type}()` dispatch
+- `Schema::create()`, `alter()`, `drop()`, `truncate()`, `renameTable()` return `void`
+- `Schema\Compiler::currentDatabase()` returns `string|array{sql, params}`
+- `Connection` no longer implements `Serializable` (uses `__serialize()` / `__unserialize()`)
+
+### Added
+
+- `compat/phpstan-bootstrap.php` so PHPStan resolves `Opis\Database\*` imports during migration
+- `vendor/bin/noirapi-database-migrate` rewrites `Opis\Database` references in applications
+- Typed column getters: `BaseColumn::getSize()`, `isNullable()`, `getLength()`, ...
+- SQLite integration tests and PHPStan type-inference tests
+
+### Removed
+
+- Oracle, Firebird, DB2 and NuoDB dialects; those drivers now throw `RuntimeException`
+- Standalone `autoload.php` (use Composer)
+
+### Fixed
+
+- `CreateColumn::getTable()` / `AlterColumn::getTable()` returned the table object from a
+  `: string` method (always a `TypeError`); they now return the table
+- `Join::on()` without a second column throws instead of generating invalid SQL
+- Unknown compiler options throw instead of creating dynamic properties
+
 ## v4.3.0 - 2024-09-29
 
 ### Added
