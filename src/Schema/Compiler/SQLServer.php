@@ -72,6 +72,15 @@ class SQLServer extends Compiler
         };
     }
 
+    /**
+     * SQL Server has no DOUBLE type; FLOAT(53) is its double precision.
+     */
+    #[Override]
+    protected function handleTypeDouble(BaseColumn $column): string
+    {
+        return 'FLOAT(53)';
+    }
+
     #[Override]
     protected function handleTypeDecimal(BaseColumn $column): string
     {

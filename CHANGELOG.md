@@ -40,6 +40,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - `stream()` on queries and `Connection::stream()`: unbuffered MySQL/MariaDB results for huge
   reads; the connection is busy until the result is consumed or released (other drivers: `select()`)
 - MySQL/MariaDB integration tests (`NOIRAPI_DB_MYSQL_DSN`, `_USER`, `_PASSWORD`; skipped when unreachable)
+- `docs/`: user documentation for 5.0 (rewritten from the opis/database 4.x docs), including
+  new pages for JSON columns, bit fields and date/time
 
 ### Changed
 
@@ -57,6 +59,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
+- `transaction()` rolled back only on `PDOException`; any other exception left the transaction
+  open. Every exception now rolls back; non-PDO exceptions are then re-thrown as before
+- SQL Server `double()` columns emitted `DOUBLE`, which SQL Server does not have; now `FLOAT(53)`
 - Renaming a column on SQLite generated no SQL
 - SQLite: after creating a table with an auto-increment column, every later `CREATE TABLE` on the
   same connection lost its PRIMARY KEY (inherited from opis/database)

@@ -1,0 +1,26 @@
+testTypes: |
+  CREATE TABLE [foo](
+  [a] INTEGER,
+  [b] FLOAT,
+  [c] FLOAT(53),
+  [d] DECIMAL,
+  [d1] DECIMAL (4),
+  [d2] DECIMAL (4, 8),
+  [e] BIT,
+  [f] NVARCHAR(255),
+  [f1] NVARCHAR(32),
+  [g] NCHAR(255),
+  [g1] NCHAR(2),
+  [h] DATE,
+  [i] DATETIME,
+  [j] DATETIME,
+  [k] TIME,
+  [l] VARBINARY(max),
+  [m] NVARCHAR(max)
+  )
+testJson: |
+  CREATE TABLE [foo](
+  [a] NVARCHAR(max)
+  )
+testAlterTableRenameColumn: |
+  sp_rename [foo].[a], [b], COLUMN

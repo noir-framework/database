@@ -365,4 +365,26 @@ final class SqliteTest extends TestCase
         $this->assertSame(['Plovdiv', 3, true, ['x'], ['zip' => '4000'], null], [$meta['city'], $meta['visits'], $meta['vip'], $meta['tags'], $meta['addr'], $meta['n']]);
         $this->assertSame(31, $q()->where('name')->is('Jan')->column('age'));
     }
+
+    public function testTransactionRollsBackOnAnyException(): void
+    {
+        try {
+            $this->db->transaction(static function (Database $db): void {
+                $db->insert(['name' => 'Tx'])->into('users');
+                throw new \DomainException('business rule');
+            });
+            $this->fail('A non-PDO exception must be re-thrown');
+        } catch (\DomainException $e) {
+            $this->assertSame('business rule', $e->getMessage());
+        }
+        $this->assertFalse($this->db->getConnection()->getPDO()->inTransaction());
+        $this->assertSame(0, $this->db->from('users')->where('name')->is('Tx')->count());
+
+        $result = $this->db->transaction(static function (Database $db): void {
+            $db->insert(['name' => 'Tx'])->into('users');
+            $db->insert(['id' => 1, 'name' => 'duplicate'])->into('users');
+        }, 'failed');
+        $this->assertSame('failed', $result);
+        $this->assertSame(0, $this->db->from('users')->where('name')->is('Tx')->count());
+    }
 }

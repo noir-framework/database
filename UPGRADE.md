@@ -71,12 +71,33 @@ needed either: the result is typed as `User|false`.
 | `where('a')->is(null)`, `isNot(null)`, `eq(null)`, `ne(null)` | `= NULL` (never matches) | `IS NULL` / `IS NOT NULL` |
 | SQLite `CREATE TABLE` after a table with an auto-increment column | PRIMARY KEY dropped | PRIMARY KEY kept |
 | MySQL `renameColumn()` | `CHANGE` (loses NOT NULL, default, comment) | `RENAME COLUMN`: needs MySQL 8 / MariaDB 10.5.2+ |
+| `ucase()`, `lcase()`, `mid()`, `len()`, `now()` on PostgreSQL / SQLite / SQL Server | MySQL names (invalid there) | `UPPER`, `LOWER`, `SUBSTR`/`SUBSTRING`, `LENGTH`/`LEN`, `datetime('now')`/`GETDATE()`; MySQL output unchanged |
+| Column names containing `->` | quoted as one identifier | JSON path (`meta->a` reads `$.a`) |
+| Non-PDO exception inside `transaction()` | re-thrown, transaction left open | rolled back, then re-thrown |
+| SQL Server `double()` column | `DOUBLE` (invalid) | `FLOAT(53)` |
 
 Native parameter types are now declared everywhere. Code that passed unexpected types (for
 example `null` where a string is expected) will get a `TypeError` instead of silently
 producing SQL.
 
-## New in 5.0: multi-row inserts and upserts
+## New in 5.0
+
+Full documentation is in [docs/](docs/README.md). Replacements for common hand-built workarounds:
+
+| Before | Now | Docs |
+|---|---|---|
+| `where(fn ($e) => $e->column('flags')->op('&')->value($m), true)->is(0)` | `where('flags')->hasNoBits($m)` | [bit fields](docs/bit-fields.md) |
+| `->isNot(0)` on the same | `hasAnyBits($m)`; all bits: `hasAllBits($m)` | |
+| `set(['flags' => fn ($e) => $e->group(...)->op('\|')->value($b)])` | `setBits()`, `clearBits()`, `$e->bits($col, set:, clear:)` | |
+| raw `DATE_SUB(NOW(), INTERVAL 4 day)` | `->atMost(fn ($e) => $e->ago(4, Interval::Day))` | [date and time](docs/date-and-time.md) |
+| `$e->op('INET6_NTOA(')->column('ip')->op(')')` | `$e->inet6Ntoa('ip')` | [expressions](docs/expressions.md) |
+| `$e->op('JSON_CONTAINS(')->column($c)->op(',')->value('"x"')->op(')')` | `where($c)->jsonContains('x')` | [JSON](docs/json.md) |
+| `$e->op('FUNC(')->...->op(')')` | `$e->call('FUNC', ...)` | [expressions](docs/expressions.md) |
+| `->select()->all()` over huge tables | `foreach ($q->select() as $row)`, or `stream()` on MySQL | [results](docs/results-handling.md) |
+| loop of `insert()` | `insertMany($rows)` | [inserting](docs/insert-records.md) |
+| select, then insert or update | `->upsert($keys, $update)` | [inserting](docs/insert-records.md) |
+
+## Multi-row inserts and upserts
 
 `insert()` keeps its single-row signature. Loops of single inserts can move to `insertMany()`:
 

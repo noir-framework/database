@@ -26,6 +26,7 @@ use Pdo\Mysql;
 use PDOException;
 use PDOStatement;
 use RuntimeException;
+use Throwable;
 
 use function array_replace;
 use function array_shift;
@@ -419,6 +420,9 @@ class Connection
     /**
      * Runs the callback inside a transaction (or directly when one is already open).
      *
+     * Any exception rolls the transaction back. A PDOException then returns $default (or is
+     * re-thrown with throwTransactionExceptions()); any other exception is always re-thrown.
+     *
      * @template TResult
      * @template TDefault
      *
@@ -428,6 +432,7 @@ class Connection
      * @return TResult|TDefault
      *
      * @throws PDOException When throwTransactionExceptions() is enabled
+     * @throws Throwable Any non-PDO exception from the callback, after the rollback
      */
     public function transaction(callable $callback, mixed $that = null, mixed $default = null): mixed
     {
@@ -437,19 +442,33 @@ class Connection
             return $callback($that ?? $this);
         }
 
+        $pdo->beginTransaction();
+
         try {
-            $pdo->beginTransaction();
             $result = $callback($that ?? $this);
             $pdo->commit();
 
             return $result;
-        } catch (PDOException $exception) {
-            $pdo->rollBack();
-            if ($this->throwTransactionExceptions) {
+        } catch (Throwable $exception) {
+            $this->rollBackOpenTransaction($pdo);
+            if (!$exception instanceof PDOException || $this->throwTransactionExceptions) {
                 throw $exception;
             }
 
             return $default;
+        }
+    }
+
+    /**
+     * Rolls back, tolerating a transaction that the callback or a failed COMMIT already ended,
+     * so the original exception is the one that surfaces.
+     */
+    private function rollBackOpenTransaction(PDO $pdo): void
+    {
+        try {
+            $pdo->rollBack();
+        } catch (PDOException) {
+            // no active transaction left to roll back
         }
     }
 
