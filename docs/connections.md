@@ -68,8 +68,54 @@ foreach ($connection->getLog() as $entry) {
 ```
 
 Each entry is `['query' => string, 'time' => float]`, with the parameters inlined into the
-query text. Parameters are also inlined into the message of a `PDOException` thrown by a
-query, so failures show the SQL that failed.
+query text. The log grows for the life of the connection, so in long-running processes
+(workers, Swoole) cap it or clear it:
+
+```php
+$connection->logQueries(true, 500);   // keep the newest 500 entries
+$connection->clearLog();
+```
+
+To send queries to your own logger or profiler instead, register a listener. It is called
+after every statement, including failed ones, whether or not `logQueries()` is on:
+
+```php
+$connection->onQuery(function (string $sql, array $params, float $seconds) use ($logger): void {
+    if ($seconds > 0.5) {
+        $logger->warning('slow query', ['sql' => $sql, 'params' => $params, 'seconds' => $seconds]);
+    }
+});
+```
+
+## Errors
+
+A failing statement throws a `PDOException` whose message ends with the SQL and its
+parameters inlined. The driver's `errorInfo` is kept, and the original exception is available
+as `getPrevious()`:
+
+```php
+try {
+    $db->insert(['email' => $email])->into('users');
+} catch (PDOException $e) {
+    if (($e->errorInfo[1] ?? null) === 1062) {  // MySQL duplicate key
+        // ...
+    }
+}
+```
+
+## Long-running processes
+
+MySQL closes idle connections after `wait_timeout` (8 hours by default), and the next query
+fails with "server has gone away". `reconnectOnLostConnection()` reconnects and runs the
+statement once more (init commands run again on the new connection):
+
+```php
+$connection->reconnectOnLostConnection();
+```
+
+It never retries inside a transaction, because the work done before the connection dropped is
+lost and replaying one statement would leave the transaction half done. The error is thrown
+as usual in that case.
 
 ## Compiler options
 

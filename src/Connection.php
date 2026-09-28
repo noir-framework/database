@@ -21,6 +21,7 @@ declare(strict_types=1);
 
 namespace Noirapi\Database;
 
+use Closure;
 use PDO;
 use Pdo\Mysql;
 use PDOException;
@@ -30,6 +31,8 @@ use Throwable;
 
 use function array_replace;
 use function array_shift;
+use function array_slice;
+use function count;
 use function get_debug_type;
 use function get_resource_id;
 use function in_array;
@@ -40,6 +43,7 @@ use function is_object;
 use function is_resource;
 use function is_string;
 use function microtime;
+use function preg_match;
 use function preg_replace_callback;
 
 /**
@@ -80,6 +84,14 @@ class Connection
     ];
 
     protected bool $logQueries = false;
+
+    /** Keep only the newest entries in the query log; 0 keeps everything. */
+    protected int $logLimit = 0;
+
+    /** @var (Closure(string, list<mixed>, float): void)|null */
+    protected ?Closure $queryListener = null;
+
+    protected bool $reconnect = false;
 
     /** @var list<LogEntry> */
     protected array $log = [];
@@ -155,9 +167,45 @@ class Connection
         $this->dsn = $data['dsn'];
     }
 
-    public function logQueries(bool $value = true): static
+    /**
+     * @param int $limit Keep only the newest entries (for long-running processes); 0 keeps all
+     */
+    public function logQueries(bool $value = true, int $limit = 0): static
     {
         $this->logQueries = $value;
+        $this->logLimit = $limit;
+
+        return $this;
+    }
+
+    public function clearLog(): static
+    {
+        $this->log = [];
+
+        return $this;
+    }
+
+    /**
+     * Called after every executed statement, also failed ones, with the SQL, the parameters and
+     * the duration in seconds; independent of logQueries(). Pass null to remove it.
+     *
+     * @param (Closure(string, list<mixed>, float): void)|null $listener
+     */
+    public function onQuery(?Closure $listener): static
+    {
+        $this->queryListener = $listener;
+
+        return $this;
+    }
+
+    /**
+     * When the server has closed the connection (MySQL "server has gone away" / "lost
+     * connection", e.g. after wait_timeout in a long-running worker), reconnect and run the
+     * statement once more. Never inside a transaction, whose work would be lost.
+     */
+    public function reconnectOnLostConnection(bool $value = true): static
+    {
+        $this->reconnect = $value;
 
         return $this;
     }
@@ -333,10 +381,7 @@ class Connection
      */
     public function query(string $sql, array $params = []): ResultSet
     {
-        $prepared = $this->prepare($sql, $params);
-        $this->execute($prepared);
-
-        return new ResultSet($prepared['statement']);
+        return new ResultSet($this->run($sql, $params)['statement']);
     }
 
     /**
@@ -346,7 +391,9 @@ class Connection
      */
     public function command(string $sql, array $params = []): bool
     {
-        return $this->execute($this->prepare($sql, $params));
+        $this->run($sql, $params);
+
+        return true;
     }
 
     /**
@@ -390,8 +437,7 @@ class Connection
      */
     public function count(string $sql, array $params = []): int
     {
-        $prepared = $this->prepare($sql, $params);
-        $this->execute($prepared);
+        $prepared = $this->run($sql, $params);
         $result = $prepared['statement']->rowCount();
         $prepared['statement']->closeCursor();
 
@@ -407,8 +453,7 @@ class Connection
      */
     public function column(string $sql, array $params = []): mixed
     {
-        $prepared = $this->prepare($sql, $params);
-        $this->execute($prepared);
+        $prepared = $this->run($sql, $params);
 
         try {
             return $prepared['statement']->fetchColumn();
@@ -509,11 +554,7 @@ class Connection
         try {
             $statement = $this->getPDO()->prepare($query);
         } catch (PDOException $e) {
-            throw new PDOException(
-                $e->getMessage() . ' [ ' . $this->replaceParams($query, $params) . ' ] ',
-                (int) $e->getCode(),
-                $e->getPrevious(),
-            );
+            throw $this->withQuery($e, $query, $params);
         }
 
         return ['query' => $query, 'params' => $params, 'statement' => $statement];
@@ -535,18 +576,90 @@ class Connection
 
             return $prepared['statement']->execute();
         } catch (PDOException $e) {
-            throw new PDOException(
-                $e->getMessage() . ' [ ' . $this->replaceParams($prepared['query'], $prepared['params']) . ' ] ',
-                (int) $e->getCode(),
-                $e->getPrevious(),
-            );
+            throw $this->withQuery($e, $prepared['query'], $prepared['params']);
         } finally {
-            if ($this->logQueries) {
-                $this->log[] = [
-                    'query' => $this->replaceParams($prepared['query'], $prepared['params']),
-                    'time' => microtime(true) - $start,
-                ];
+            $this->record($prepared, microtime(true) - $start);
+        }
+    }
+
+    /**
+     * Prepares and executes, reconnecting once when enabled and the connection was lost.
+     *
+     * @param list<mixed> $params
+     *
+     * @return Prepared
+     *
+     * @throws PDOException
+     */
+    private function run(string $sql, array $params): array
+    {
+        try {
+            $prepared = $this->prepare($sql, $params);
+            $this->execute($prepared);
+
+            return $prepared;
+        } catch (PDOException $e) {
+            if (!$this->reconnect || !self::isLostConnection($e) || $this->pdo?->inTransaction() === true) {
+                throw $e;
             }
+        }
+
+        $this->disconnect();
+        $prepared = $this->prepare($sql, $params);
+        $this->execute($prepared);
+
+        return $prepared;
+    }
+
+    /**
+     * MySQL client errors 2006 (gone away), 2013 (lost during query) and 4031 (disconnected
+     * for inactivity), and the messages PostgreSQL / others use for a closed connection.
+     */
+    private static function isLostConnection(PDOException $exception): bool
+    {
+        if (in_array($exception->errorInfo[1] ?? null, [2006, 2013, 4031], true)) {
+            return true;
+        }
+
+        $pattern = '/server has gone away|lost connection|no connection to the server|server closed the connection/i';
+
+        return preg_match($pattern, $exception->getMessage()) === 1;
+    }
+
+    /**
+     * The driver's exception with the query appended to its message, keeping its errorInfo
+     * (driver error codes such as 1062) and chaining the original.
+     *
+     * @param list<mixed> $params
+     */
+    private function withQuery(PDOException $exception, string $query, array $params): PDOException
+    {
+        $wrapped = new PDOException(
+            $exception->getMessage() . ' [ ' . $this->replaceParams($query, $params) . ' ] ',
+            (int) $exception->getCode(),
+            $exception,
+        );
+        $wrapped->errorInfo = $exception->errorInfo;
+
+        return $wrapped;
+    }
+
+    /**
+     * @param Prepared $prepared
+     */
+    private function record(array $prepared, float $seconds): void
+    {
+        if ($this->queryListener !== null) {
+            ($this->queryListener)($prepared['query'], $prepared['params'], $seconds);
+        }
+
+        if (!$this->logQueries) {
+            return;
+        }
+
+        $this->log[] = ['query' => $this->replaceParams($prepared['query'], $prepared['params']), 'time' => $seconds];
+        if ($this->logLimit > 0 && count($this->log) > $this->logLimit) {
+            $this->log = array_slice($this->log, -$this->logLimit);
         }
     }
 

@@ -286,6 +286,47 @@ final class MySqlTest extends TestCase
         $this->assertSame(31, $q()->where('name')->is('Jan')->column('age'));
     }
 
+    public function testReconnectAfterLostConnection(): void
+    {
+        $kill = function (Connection $victim): void {
+            $id = $victim->column('SELECT CONNECTION_ID()');
+            $killer = new Connection(
+                self::env('NOIRAPI_DB_MYSQL_DSN', 'mysql:host=localhost;dbname=test'),
+                self::env('NOIRAPI_DB_MYSQL_USER', 'test'),
+                self::env('NOIRAPI_DB_MYSQL_PASSWORD', 'test'),
+            );
+            $killer->command('KILL ' . (int) $id);
+            usleep(100_000);
+        };
+
+        $connection = $this->db->getConnection();
+        $kill($connection);
+        try {
+            $connection->column('SELECT 1');
+            $this->fail('A killed connection must fail without reconnectOnLostConnection()');
+        } catch (PDOException $e) {
+            $this->assertContains($e->errorInfo[1] ?? null, [2006, 2013, 4031]);
+        }
+
+        $connection->disconnect();
+        $connection->reconnectOnLostConnection();
+        $kill($connection);
+        $this->assertSame(1, $connection->column('SELECT 1'));
+    }
+
+    public function testDriverErrorInfoIsKept(): void
+    {
+        $this->db->insert(['name' => 'Ann', 'age' => 1])->into('t_users');
+        try {
+            $this->db->insert(['name' => 'Ann', 'age' => 2])->into('t_users');
+            $this->fail('Duplicate key expected');
+        } catch (PDOException $e) {
+            $this->assertSame(1062, $e->errorInfo[1] ?? null);
+            $this->assertInstanceOf(PDOException::class, $e->getPrevious());
+            $this->assertStringContainsString("[ INSERT INTO `t_users`", $e->getMessage());
+        }
+    }
+
     private function dropAll(): void
     {
         $pdo = $this->db->getConnection()->getPDO();

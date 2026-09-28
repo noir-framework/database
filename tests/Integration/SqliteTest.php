@@ -424,4 +424,29 @@ final class SqliteTest extends TestCase
         });
         $this->assertSame(600, $this->db->from('users')->where('name')->like('tx%')->count());
     }
+
+    public function testLogLimitAndQueryListener(): void
+    {
+        $connection = $this->db->getConnection();
+        $seen = [];
+        $connection->logQueries(true, 2)->onQuery(static function (string $sql, array $params, float $seconds) use (&$seen): void {
+            $seen[] = [$sql, $params];
+        });
+
+        $this->db->from('users')->where('id')->is(1)->column('name');
+        $this->db->from('users')->where('id')->is(2)->column('name');
+        $this->db->from('users')->where('id')->is(3)->column('name');
+
+        $this->assertSame(
+            ['SELECT "name" FROM "users" WHERE "id" = 2', 'SELECT "name" FROM "users" WHERE "id" = 3'],
+            array_column($connection->getLog(), 'query'),
+        );
+        $this->assertSame(['SELECT "name" FROM "users" WHERE "id" = ?', [1]], $seen[0]);
+        $this->assertCount(3, $seen);
+
+        $connection->onQuery(null)->clearLog();
+        $this->db->from('users')->count();
+        $this->assertCount(3, $seen);
+        $this->assertCount(1, $connection->getLog());
+    }
 }

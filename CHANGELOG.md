@@ -6,6 +6,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- `Connection::reconnectOnLostConnection()`: reconnect and retry once after MySQL "server has
+  gone away" / "lost connection" (never inside a transaction)
+- `logQueries($value, $limit)` keeps only the newest entries; `clearLog()`; `onQuery($listener)`
+  is called after every statement with the SQL, parameters and duration
 - `insertMany()` batches that exceed the database's bound-parameter limit (65,535 on MySQL and
   PostgreSQL, 2,100 on SQL Server, 999 on SQLite) are split into several statements run in one
   transaction; `SQL\Compiler::getMaxParams()`
@@ -13,6 +17,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
+- A failing statement's `PDOException` lost the driver's `errorInfo` (e.g. MySQL 1062) and
+  its original exception; both are kept now (`getPrevious()` is the driver's exception)
 - `in([])` / `notIn([])` (and the HAVING forms) generated `IN ()`, a syntax error; an empty list
   now matches nothing (`1 = 0`) or everything (`1 = 1`)
 
