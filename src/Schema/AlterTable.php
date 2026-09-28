@@ -261,6 +261,16 @@ class AlterTable
         return $this->modifyColumn($name, 'fixed')->set('length', $length);
     }
 
+    public function json(string $name): AlterColumn
+    {
+        return $this->addColumn($name, 'json');
+    }
+
+    public function toJson(string $name): AlterColumn
+    {
+        return $this->modifyColumn($name, 'json');
+    }
+
     protected function addCommand(AlterCommand $command): static
     {
         $this->commands[] = $command;

@@ -20,6 +20,8 @@ declare(strict_types=1);
 
 namespace Noirapi\Database\Test\SQL;
 
+use InvalidArgumentException;
+use LogicException;
 use Noirapi\Database\SQL\Expression;
 
 class WhereTest extends BaseClass
@@ -329,5 +331,78 @@ class WhereTest extends BaseClass
             }, true)->nop()
             ->select());
         $this->assertEquals($expected, $actual);
+    }
+
+    public function testWhereIsNullValue(): void
+    {
+        $expected = 'SELECT * FROM "users" WHERE "age" IS NULL AND "name" IS NOT NULL AND "a" IS NULL';
+        $actual = $this->sql(fn () => $this->db->from('users')
+            ->where('age')->is(null)
+            ->andWhere('name')->isNot(null)
+            ->andWhere('a')->eq(null)
+            ->select());
+        $this->assertEquals($expected, $actual);
+    }
+
+    public function testWhereIsNotNullAlias(): void
+    {
+        $expected = 'SELECT * FROM "users" WHERE "age" IS NOT NULL';
+        $actual = $this->sql(fn () => $this->db->from('users')->where('age')->isNotNull()->select());
+        $this->assertEquals($expected, $actual);
+    }
+
+    public function testWhereExpressionShortcuts(): void
+    {
+        $expected = 'SELECT * FROM "users" WHERE LCASE("name") = \'a\' AND "x" > 1 OR "y" < 2';
+        $actual = $this->sql(fn () => $this->db->from('users')
+            ->whereExpression(fn (Expression $e) => $e->lcase('name'))->is('a')
+            ->andWhereExpression(Expression::fromColumn('x'))->gt(1)
+            ->orWhereExpression(fn (Expression $e) => $e->column('y'))->lt(2)
+            ->select());
+        $this->assertEquals($expected, $actual);
+    }
+
+    public function testExpressionCall(): void
+    {
+        $expected = 'SELECT * FROM "users" WHERE match("username") against(\'expression\')';
+        $actual = $this->sql(fn () => $this->db->from('users')
+            ->whereExpression(function (Expression $expr): void {
+                $expr->call('match', fn (Expression $e) => $e->column('username'));
+                $expr->call('against', 'expression');
+            })
+            ->nop()
+            ->select());
+        $this->assertEquals($expected, $actual);
+    }
+
+    public function testExpressionMagicCall(): void
+    {
+        $expected = 'SELECT * FROM "users" WHERE CUSTOM_AGE_CALC(HASH(\'secret\'), '
+            . 'CONCAT(\'prefix-\', "name"), "age" - 10, NOW()) = "age"';
+        $actual = $this->sql(fn () => $this->db->from('users')
+            ->whereExpression(function (Expression $expr): void {
+                $expr->CUSTOM_AGE_CALC(
+                    fn (Expression $e) => $e->HASH('secret'),
+                    fn (Expression $e) => $e->CONCAT('prefix-', Expression::fromColumn('name')),
+                    fn (Expression $e) => $e->column('age')->op('-')->value(10),
+                    Expression::fromCall('NOW'),
+                );
+            })
+            ->is('age', true)
+            ->select());
+        $this->assertEquals($expected, $actual);
+    }
+
+    public function testExpressionCallRejectsInvalidName(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new Expression())->call('SLEEP(5); --');
+    }
+
+    public function testExpressionRejectsPropertyWrites(): void
+    {
+        $this->expectException(LogicException::class);
+        $expression = new Expression();
+        $expression->foo = 1; // @phpstan-ignore property.notFound
     }
 }

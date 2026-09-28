@@ -62,6 +62,15 @@ class SQLite extends Compiler
     }
 
     #[Override]
+    public function getViews(string $database): array
+    {
+        $sql = 'SELECT ' . $this->wrap('name') . ' FROM ' . $this->wrap('sqlite_master')
+            . ' WHERE type = ? ORDER BY ' . $this->wrap('name') . ' ASC';
+
+        return ['sql' => $sql, 'params' => ['view']];
+    }
+
+    #[Override]
     public function getColumns(string $database, string $table): array
     {
         return ['sql' => 'PRAGMA table_info(' . $this->wrap($table) . ')', 'params' => []];
@@ -71,6 +80,18 @@ class SQLite extends Compiler
     public function renameTable(string $current, string $new): array
     {
         return ['sql' => 'ALTER TABLE ' . $this->wrap($current) . ' RENAME TO ' . $this->wrap($new), 'params' => []];
+    }
+
+    /**
+     * Resets the inline-primary-key flag, which would otherwise leak into every later table
+     * compiled by this (per-connection) compiler and drop their PRIMARY KEY.
+     */
+    #[Override]
+    public function create(CreateTable $schema): array
+    {
+        $this->nopk = false;
+
+        return parent::create($schema);
     }
 
     #[Override]
@@ -99,6 +120,15 @@ class SQLite extends Compiler
     protected function handleTypeInteger(BaseColumn $column): string
     {
         return 'INTEGER';
+    }
+
+    /**
+     * TEXT affinity: a column declared JSON would get NUMERIC affinity and turn '1' into 1.
+     */
+    #[Override]
+    protected function handleTypeJson(BaseColumn $column): string
+    {
+        return 'TEXT';
     }
 
     #[Override]

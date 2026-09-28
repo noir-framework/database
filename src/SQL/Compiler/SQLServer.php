@@ -21,11 +21,16 @@ declare(strict_types=1);
 
 namespace Noirapi\Database\SQL\Compiler;
 
+use LogicException;
 use Noirapi\Database\SQL\Compiler;
 use Noirapi\Database\SQL\SQLStatement;
 use Override;
 
+use function array_map;
 use function array_values;
+use function implode;
+use function is_string;
+use function ltrim;
 use function trim;
 
 class SQLServer extends Compiler
@@ -84,6 +89,52 @@ class SQLServer extends Compiler
         $offset++;
 
         return 'SELECT * FROM (' . $sql . ') AS m1 WHERE opis_rownum BETWEEN ' . $offset . ' AND ' . $limit;
+    }
+
+    /**
+     * SQL Server has no INSERT ... ON CONFLICT, so upserts become a MERGE with the rows as its
+     * source, aliased [excluded]. HOLDLOCK keeps concurrent upserts from both inserting.
+     *
+     * @throws LogicException When upserting without conflict keys
+     */
+    #[Override]
+    public function insert(SQLStatement $insert): string
+    {
+        $upsert = $insert->getUpsert();
+        if ($upsert === null) {
+            return parent::insert($insert);
+        }
+
+        if ($upsert->keys === []) {
+            throw new LogicException('upsert() needs the conflict key columns on SQL Server');
+        }
+
+        $table = $this->wrap(array_values($insert->getTables())[0] ?? '');
+        $columns = $this->insertColumnNames($insert);
+        $source = static fn (string $column): string => '[excluded].' . $column;
+        $wrapped = array_map($this->wrap(...), $columns);
+
+        $sql = 'MERGE INTO ' . $table . ' WITH (HOLDLOCK) USING ('
+            . ltrim($this->handleInsertRows($insert->getInsertRows())) . ') AS [excluded] ('
+            . implode(', ', $wrapped) . ') ON ';
+        $sql .= implode(' AND ', array_map(
+            fn (string $key): string => $table . '.' . $this->wrap($key) . ' = ' . $source($this->wrap($key)),
+            $upsert->keys,
+        ));
+
+        $set = [];
+        foreach ($this->upsertAssignments($upsert, $columns) as $assignment) {
+            $set[] = is_string($assignment)
+                ? $this->wrap($assignment) . ' = ' . $source($this->wrap($assignment))
+                : $this->wrap($assignment->column) . ' = ' . $this->param($assignment->value);
+        }
+
+        if ($set !== []) {
+            $sql .= ' WHEN MATCHED THEN UPDATE SET ' . implode(', ', $set);
+        }
+
+        return $sql . ' WHEN NOT MATCHED THEN INSERT (' . implode(', ', $wrapped) . ') VALUES ('
+            . implode(', ', array_map($source, $wrapped)) . ');';
     }
 
     #[Override]

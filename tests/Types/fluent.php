@@ -7,6 +7,8 @@ declare(strict_types=1);
 namespace Noirapi\Database\Test\Types;
 
 use Noirapi\Database\Database;
+use Noirapi\Database\SQL\Expression;
+use Noirapi\Database\SQL\Insert;
 use Noirapi\Database\SQL\Query;
 use Noirapi\Database\SQL\Select;
 use Noirapi\Database\SQL\Update;
@@ -45,4 +47,14 @@ function check(Database $db): void
     assertType('int', $db->update('users')->where('id')->is(1)->increment('hits'));
     assertType('int', $db->from('users')->where('id')->is(1)->delete());
     assertType('bool', $db->insert(['a' => 1])->into('users'));
+    assertType(Insert::class, $db->insertMany([['a' => 1], ['a' => 2]]));
+    assertType(Insert::class, $db->insert(['a' => 1])->upsert('a', ['b']));
+    assertType('bool', $db->insertMany([['a' => 1]])->upsert(['a'])->into('users'));
+    assertType('string|false', $db->lastInsertId());
+
+    assertType('Noirapi\Database\SQL\Where<' . Query::class . '>', $db->from('users')->whereExpression(Expression::fromColumn('a')));
+    assertType(Query::class, $db->from('users')->orWhereExpression(static fn (Expression $e) => $e->column('a'))->is(null));
+    assertType(Query::class, $db->from('users')->where('a')->isNotNull());
+    assertType(Expression::class, Expression::fromCall('NOW'));
+    assertType(Expression::class, (new Expression())->call('COALESCE', 1)->call('NOW'));
 }

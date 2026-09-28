@@ -75,18 +75,30 @@ class Where
     }
 
     /**
+     * `is(null)` compiles to `IS NULL` (`= NULL` never matches).
+     *
      * @return TStatement
      */
     public function is(mixed $value, bool $is_column = false): WhereStatement
     {
+        if ($value === null) {
+            return $this->addNullCondition(false);
+        }
+
         return $this->addCondition($value, '=', $is_column);
     }
 
     /**
+     * `isNot(null)` compiles to `IS NOT NULL` (`!= NULL` never matches).
+     *
      * @return TStatement
      */
     public function isNot(mixed $value, bool $is_column = false): WhereStatement
     {
+        if ($value === null) {
+            return $this->addNullCondition(true);
+        }
+
         return $this->addCondition($value, '!=', $is_column);
     }
 
@@ -186,6 +198,16 @@ class Where
      * @return TStatement
      */
     public function notNull(): WhereStatement
+    {
+        return $this->addNullCondition(true);
+    }
+
+    /**
+     * Alias of notNull().
+     *
+     * @return TStatement
+     */
+    public function isNotNull(): WhereStatement
     {
         return $this->addNullCondition(true);
     }

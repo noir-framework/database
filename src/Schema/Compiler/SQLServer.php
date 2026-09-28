@@ -109,6 +109,12 @@ class SQLServer extends Compiler
     }
 
     #[Override]
+    protected function handleTypeJson(BaseColumn $column): string
+    {
+        return 'NVARCHAR(max)';
+    }
+
+    #[Override]
     protected function handleTypeTimestamp(BaseColumn $column): string
     {
         return 'DATETIME';

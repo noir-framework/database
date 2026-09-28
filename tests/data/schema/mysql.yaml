@@ -118,3 +118,12 @@ testAlterTableDropColumn: |
   ALTER TABLE `foo` DROP COLUMN `a`
 testAlterTableAddDefaults: |
     ALTER TABLE `foo` ALTER `a` SET DEFAULT 100
+testJson: |
+  CREATE TABLE `foo`(
+  `a` JSON
+  )
+testAlterTableJson: |
+  ALTER TABLE `foo` ADD COLUMN `a` JSON
+  ALTER TABLE `foo` MODIFY COLUMN `b` JSON
+testAlterTableRenameColumn: |
+  ALTER TABLE `foo` RENAME COLUMN `a` TO `b`

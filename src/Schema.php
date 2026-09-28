@@ -23,6 +23,9 @@ namespace Noirapi\Database;
 
 use Noirapi\Database\Schema\AlterTable;
 use Noirapi\Database\Schema\CreateTable;
+use Noirapi\Database\SQL\Expression;
+use Noirapi\Database\SQL\SelectStatement;
+use Noirapi\Database\SQL\Subquery;
 use PDOException;
 use RuntimeException;
 
@@ -40,6 +43,9 @@ class Schema
 {
     /** @var array<string, string>|null lower-case name => actual name */
     protected ?array $tableList = null;
+
+    /** @var array<string, string>|null lower-case name => actual name */
+    protected ?array $viewList = null;
 
     protected ?string $currentDatabase = null;
 
@@ -87,17 +93,79 @@ class Schema
 
         if ($this->tableList === null) {
             $sql = $this->connection->schemaCompiler()->getTables($this->getCurrentDatabase());
-            $rows = $this->connection->query($sql['sql'], $sql['params'])->fetchNum()->all();
-
-            $this->tableList = [];
-            foreach ($rows as $row) {
-                if (isset($row[0]) && is_string($row[0])) {
-                    $this->tableList[strtolower($row[0])] = $row[0];
-                }
-            }
+            $this->tableList = $this->fetchNames($sql['sql'], $sql['params']);
         }
 
         return $this->tableList;
+    }
+
+    /**
+     * @throws PDOException
+     */
+    public function hasView(string $view, bool $clear = false): bool
+    {
+        return isset($this->getViews($clear)[strtolower($view)]);
+    }
+
+    /**
+     * @return array<string, string> lower-case name => actual name
+     *
+     * @throws PDOException
+     */
+    public function getViews(bool $clear = false): array
+    {
+        if ($clear) {
+            $this->viewList = null;
+        }
+
+        if ($this->viewList === null) {
+            $sql = $this->connection->schemaCompiler()->getViews($this->getCurrentDatabase());
+            $this->viewList = $this->fetchNames($sql['sql'], $sql['params']);
+        }
+
+        return $this->viewList;
+    }
+
+    /**
+     * Creates a view from a query built in the callback:
+     * `$schema->createView('adults', 'users', fn (SelectStatement $q) => $q->where('age')->gte(18)->select())`.
+     *
+     * Values are inlined as literals, since views cannot take bound parameters.
+     *
+     * @param string|array<int|string, string|Expression> $table
+     * @param callable(SelectStatement): mixed $callback
+     *
+     * @throws PDOException
+     * @throws RuntimeException When the driver cannot quote literals
+     */
+    public function createView(string $view, string|array $table, callable $callback): void
+    {
+        $select = (new Subquery())->from($table);
+        $callback($select);
+
+        $pdo = $this->connection->getPDO();
+        $quote = static function (string $value) use ($pdo): string {
+            $quoted = $pdo->quote($value);
+
+            return $quoted !== false ? $quoted : throw new RuntimeException('The PDO driver cannot quote values');
+        };
+        $sql = $this->connection->getCompiler()->selectInline($select->getSQLStatement(), $quote);
+
+        $result = $this->connection->schemaCompiler()->createView($view, $sql);
+        $this->connection->command($result['sql'], $result['params']);
+
+        $this->viewList = null;
+    }
+
+    /**
+     * @throws PDOException
+     */
+    public function dropView(string $view): void
+    {
+        $result = $this->connection->schemaCompiler()->dropView($view);
+        $this->connection->command($result['sql'], $result['params']);
+
+        $this->viewList = null;
     }
 
     /**
@@ -197,6 +265,25 @@ class Schema
     {
         $result = $this->connection->schemaCompiler()->truncate($table);
         $this->connection->command($result['sql'], $result['params']);
+    }
+
+    /**
+     * @param list<mixed> $params
+     *
+     * @return array<string, string> lower-case name => actual name, from the first column
+     *
+     * @throws PDOException
+     */
+    private function fetchNames(string $sql, array $params): array
+    {
+        $names = [];
+        foreach ($this->connection->query($sql, $params)->fetchNum()->all() as $row) {
+            if (isset($row[0]) && is_string($row[0])) {
+                $names[strtolower($row[0])] = $row[0];
+            }
+        }
+
+        return $names;
     }
 
     private static function toString(mixed $value): string

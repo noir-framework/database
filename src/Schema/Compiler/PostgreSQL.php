@@ -131,13 +131,6 @@ class PostgreSQL extends Compiler
     }
 
     #[Override]
-    protected function handleRenameColumn(AlterTable $table, AlterCommand $command): string
-    {
-        return $this->alterTable($table) . ' RENAME COLUMN ' . $this->wrap($command->name)
-            . ' TO ' . $this->wrap($command->column()->getName());
-    }
-
-    #[Override]
     protected function handleAddIndex(AlterTable $table, AlterCommand $command): string
     {
         return 'CREATE INDEX ' . $this->wrap($table->getTableName() . '_' . $command->name)

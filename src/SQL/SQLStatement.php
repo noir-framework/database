@@ -22,6 +22,7 @@ declare(strict_types=1);
 namespace Noirapi\Database\SQL;
 
 use Closure;
+use InvalidArgumentException;
 use Noirapi\Database\SQL\Clause\Condition;
 use Noirapi\Database\SQL\Clause\HavingBetween;
 use Noirapi\Database\SQL\Clause\HavingCondition;
@@ -32,6 +33,7 @@ use Noirapi\Database\SQL\Clause\JoinClause;
 use Noirapi\Database\SQL\Clause\OrderClause;
 use Noirapi\Database\SQL\Clause\SelectColumn;
 use Noirapi\Database\SQL\Clause\UpdateColumn;
+use Noirapi\Database\SQL\Clause\UpsertClause;
 use Noirapi\Database\SQL\Clause\WhereBetween;
 use Noirapi\Database\SQL\Clause\WhereColumn;
 use Noirapi\Database\SQL\Clause\WhereExists;
@@ -47,6 +49,7 @@ use function array_map;
 use function array_values;
 use function in_array;
 use function is_array;
+use function is_string;
 use function strtoupper;
 
 /**
@@ -56,6 +59,7 @@ use function strtoupper;
  *
  * @SuppressWarnings("PHPMD.ExcessiveClassComplexity") Collects every clause type of the fluent API.
  * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Creates every clause value object.
+ * @SuppressWarnings("PHPMD.TooManyFields") One field per clause kind of SELECT/INSERT/UPDATE/DELETE.
  * @SuppressWarnings("PHPMD.BooleanGetMethodName") getDistinct() is public opis/database API.
  */
 class SQLStatement
@@ -99,6 +103,11 @@ class SQLStatement
 
     /** @var list<mixed> */
     protected array $values = [];
+
+    /** @var list<list<mixed>> Rows added after the first one (multi-row INSERT) */
+    protected array $rows = [];
+
+    protected ?UpsertClause $upsert = null;
 
     /**
      * @param Closure(WhereStatement): mixed $callback
@@ -478,6 +487,65 @@ class SQLStatement
     public function getValues(): array
     {
         return $this->values;
+    }
+
+    /**
+     * Adds a whole INSERT row, its values in column order.
+     *
+     * @param array<mixed> $values
+     */
+    public function addValues(array $values): void
+    {
+        $values = array_values(array_map($this->valueToExpression(...), $values));
+        if ($this->values === [] && $this->rows === []) {
+            $this->values = $values;
+
+            return;
+        }
+
+        $this->rows[] = $values;
+    }
+
+    /**
+     * All INSERT rows: the one built by addValue() / the first addValues(), then the others.
+     *
+     * @return list<list<mixed>>
+     */
+    public function getInsertRows(): array
+    {
+        return [$this->values, ...$this->rows];
+    }
+
+    /**
+     * @param list<string> $keys
+     * @param array<int|string, mixed>|null $update column names, and/or column => value
+     *
+     * @throws InvalidArgumentException When a list entry is not a column name
+     */
+    public function setUpsert(array $keys, ?array $update): void
+    {
+        if ($update !== null) {
+            $columns = [];
+            /** @var mixed $value */
+            foreach ($update as $column => $value) {
+                if (is_string($column)) {
+                    $columns[] = new UpdateColumn($column, $this->valueToExpression($value));
+                    continue;
+                }
+
+                $columns[] = is_string($value)
+                    ? $value
+                    : throw new InvalidArgumentException('upsert() column names must be strings');
+            }
+            $update = $columns;
+        }
+
+        $this->upsert = new UpsertClause($keys, $update);
+    }
+
+    public function getUpsert(): ?UpsertClause
+    {
+        return $this->upsert;
     }
 
     /**

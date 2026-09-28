@@ -239,6 +239,14 @@ class CreateTable
         return $this->addColumn($name, 'fixed')->length($length);
     }
 
+    /**
+     * JSON document: JSON on MySQL/PostgreSQL, TEXT on SQLite, NVARCHAR(max) on SQL Server.
+     */
+    public function json(string $name): CreateColumn
+    {
+        return $this->addColumn($name, 'json');
+    }
+
     public function softDelete(string $column = 'deleted_at'): static
     {
         $this->dateTime($column);

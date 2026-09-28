@@ -64,7 +64,10 @@ class Compiler
 
     protected string $autoincrement = 'AUTO_INCREMENT';
 
-    public function __construct(protected Connection $connection)
+    /**
+     * The connection is only needed by dialects that inspect the live schema (MySQL column renames).
+     */
+    public function __construct(protected ?Connection $connection = null)
     {
     }
 
@@ -124,6 +127,36 @@ class Compiler
             . $this->wrap('table_name') . ' ASC';
 
         return ['sql' => $sql, 'params' => ['BASE TABLE', $database]];
+    }
+
+    /**
+     * @return Command
+     */
+    public function getViews(string $database): array
+    {
+        $sql = 'SELECT ' . $this->wrap('table_name') . ' FROM ' . $this->wrap('information_schema')
+            . '.' . $this->wrap('tables') . ' WHERE table_type = ? AND table_schema = ? ORDER BY '
+            . $this->wrap('table_name') . ' ASC';
+
+        return ['sql' => $sql, 'params' => ['VIEW', $database]];
+    }
+
+    /**
+     * @param string $select The view's SELECT, with its values inlined
+     *
+     * @return Command
+     */
+    public function createView(string $view, string $select): array
+    {
+        return ['sql' => 'CREATE VIEW ' . $this->wrap($view) . ' AS ' . $select, 'params' => []];
+    }
+
+    /**
+     * @return Command
+     */
+    public function dropView(string $view): array
+    {
+        return ['sql' => 'DROP VIEW ' . $this->wrap($view), 'params' => []];
     }
 
     /**
@@ -252,6 +285,7 @@ class Compiler
             'timestamp' => $this->handleTypeTimestamp($column),
             'date' => $this->handleTypeDate($column),
             'dateTime' => $this->handleTypeDateTime($column),
+            'json' => $this->handleTypeJson($column),
             '' => '',
             default => throw new InvalidArgumentException('Unknown column type: ' . $column->getType()),
         });
@@ -338,6 +372,11 @@ class Compiler
     protected function handleTypeDateTime(BaseColumn $column): string
     {
         return 'DATETIME';
+    }
+
+    protected function handleTypeJson(BaseColumn $column): string
+    {
+        return 'JSON';
     }
 
     /**
@@ -499,11 +538,12 @@ class Compiler
     }
 
     /**
-     * Not supported generically; dialects override it.
+     * Supported by PostgreSQL, SQLite 3.25+, MySQL 8 and MariaDB 10.5.2+.
      */
     protected function handleRenameColumn(AlterTable $table, AlterCommand $command): string
     {
-        return '';
+        return $this->alterTable($table) . ' RENAME COLUMN ' . $this->wrap($command->name)
+            . ' TO ' . $this->wrap($command->column()->getName());
     }
 
     protected function handleModifyColumn(AlterTable $table, AlterCommand $command): string

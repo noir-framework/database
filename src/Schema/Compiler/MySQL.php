@@ -27,8 +27,6 @@ use Noirapi\Database\Schema\BaseColumn;
 use Noirapi\Database\Schema\Compiler;
 use Override;
 
-use function is_array;
-
 class MySQL extends Compiler
 {
     protected string $wrapper = '`%s`';
@@ -114,19 +112,5 @@ class MySQL extends Compiler
     protected function handleDropDefaultValue(AlterTable $table, AlterCommand $command): string
     {
         return $this->alterTable($table) . ' ALTER ' . $this->wrap($command->name) . ' DROP DEFAULT';
-    }
-
-    /**
-     * MySQL's CHANGE needs the column type, which is looked up from the live table.
-     */
-    #[Override]
-    protected function handleRenameColumn(AlterTable $table, AlterCommand $command): string
-    {
-        $tableName = $table->getTableName();
-        $columns = $this->connection->getSchema()->getColumns($tableName, false, false);
-        $type = is_array($columns) && isset($columns[$command->name]) ? $columns[$command->name]['type'] : 'integer';
-
-        return $this->alterTable($table) . ' CHANGE ' . $this->wrap($command->name)
-            . ' ' . $this->wrap($command->column()->getName()) . ' ' . $type;
     }
 }

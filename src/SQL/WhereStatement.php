@@ -76,6 +76,38 @@ class WhereStatement
     }
 
     /**
+     * Shortcut for `where($expression, true)`: the expression is the left-hand side of the condition.
+     *
+     * @param Expression|(Closure(Expression): mixed) $expression
+     *
+     * @return Where<$this>
+     */
+    public function whereExpression(Expression|Closure $expression): Where
+    {
+        return $this->addWhereExpression($expression, 'AND');
+    }
+
+    /**
+     * @param Expression|(Closure(Expression): mixed) $expression
+     *
+     * @return Where<$this>
+     */
+    public function andWhereExpression(Expression|Closure $expression): Where
+    {
+        return $this->addWhereExpression($expression, 'AND');
+    }
+
+    /**
+     * @param Expression|(Closure(Expression): mixed) $expression
+     *
+     * @return Where<$this>
+     */
+    public function orWhereExpression(Expression|Closure $expression): Where
+    {
+        return $this->addWhereExpression($expression, 'OR');
+    }
+
+    /**
      * @param Closure(Subquery): mixed $select
      */
     public function whereExists(Closure $select): static
@@ -142,6 +174,20 @@ class WhereStatement
         /** @var Where<$this> $where */
         $where = new Where($this, $this->sql);
         $where->init($column, $separator);
+
+        return $where;
+    }
+
+    /**
+     * @param Expression|(Closure(Expression): mixed) $expression
+     *
+     * @return Where<$this>
+     */
+    protected function addWhereExpression(Expression|Closure $expression, string $separator): Where
+    {
+        /** @var Where<$this> $where */
+        $where = new Where($this, $this->sql);
+        $where->init($expression, $separator);
 
         return $where;
     }

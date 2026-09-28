@@ -22,8 +22,11 @@ declare(strict_types=1);
 namespace Noirapi\Database\SQL;
 
 use Closure;
+use InvalidArgumentException;
+use LogicException;
 use Noirapi\Database\SQL\Clause\AggregateFunction;
 use Noirapi\Database\SQL\Clause\AggregateName;
+use Noirapi\Database\SQL\Clause\CallPart;
 use Noirapi\Database\SQL\Clause\ColumnPart;
 use Noirapi\Database\SQL\Clause\ExpressionPart;
 use Noirapi\Database\SQL\Clause\FunctionName;
@@ -34,14 +37,18 @@ use Noirapi\Database\SQL\Clause\SubqueryPart;
 use Noirapi\Database\SQL\Clause\ValuePart;
 
 use function array_map;
+use function array_values;
 use function count;
 use function is_array;
+use function preg_match;
 
 /**
  * A raw SQL expression assembled from columns, operators, values and functions.
  *
  * Any undefined property read appends that name as an operator, so
- * `$expr->column('a')->{'+'}->value(1)` produces `"a" + ?`.
+ * `$expr->column('a')->{'+'}->value(1)` produces `"a" + ?`, and any undefined method call
+ * appends a function call, so `$expr->COALESCE(fn ($e) => $e->column('a'), 0)` produces
+ * `COALESCE("a", ?)`.
  *
  * @psalm-type ColumnArg = string|Expression|(Closure(Expression): mixed)
  *
@@ -61,6 +68,19 @@ class Expression
         $func($expression);
 
         return $expression;
+    }
+
+    public static function fromColumn(string $column): self
+    {
+        return (new self())->column($column);
+    }
+
+    /**
+     * @throws InvalidArgumentException When the function name is not a plain identifier
+     */
+    public static function fromCall(string $func, mixed ...$args): self
+    {
+        return (new self())->call($func, ...$args);
     }
 
     /**
@@ -212,6 +232,42 @@ class Expression
     }
 
     /**
+     * Appends a call to an SQL function. Arguments that are expressions (or closures building one)
+     * are inlined; anything else is bound as a parameter, so columns must be passed as
+     * `fn (Expression $e) => $e->column('name')` or `Expression::fromColumn('name')`.
+     *
+     * @throws InvalidArgumentException When the function name is not a plain identifier
+     */
+    public function call(string $func, mixed ...$args): static
+    {
+        if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/', $func) !== 1) {
+            throw new InvalidArgumentException('Invalid SQL function name: ' . $func);
+        }
+
+        return $this->addExpression(new CallPart($func, array_map(self::argument(...), array_values($args))));
+    }
+
+    /**
+     * Unknown methods are SQL function calls: `$expr->COALESCE(...)` is `$expr->call('COALESCE', ...)`.
+     *
+     * @param array<array-key, mixed> $arguments
+     *
+     * @throws InvalidArgumentException When the function name is not a plain identifier
+     */
+    public function __call(string $name, array $arguments): static
+    {
+        return $this->call($name, ...array_values($arguments));
+    }
+
+    /**
+     * @throws LogicException Always: property writes would silently be lost
+     */
+    public function __set(string $name, mixed $value): void
+    {
+        throw new LogicException('Cannot set property "' . $name . '" on ' . self::class);
+    }
+
+    /**
      * Appends the property name as an operator, e.g. `$expr->{'*'}`.
      */
     public function __get(string $value): static
@@ -232,6 +288,19 @@ class Expression
         $this->expressions[] = $part;
 
         return $this;
+    }
+
+    /**
+     * Closures become expressions; anything else is a value.
+     */
+    private static function argument(mixed $arg): mixed
+    {
+        if ($arg instanceof Closure) {
+            /** @var Closure(Expression): mixed $arg */
+            return self::fromClosure($arg);
+        }
+
+        return $arg;
     }
 
     /**

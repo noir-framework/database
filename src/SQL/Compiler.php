@@ -21,10 +21,12 @@ declare(strict_types=1);
 
 namespace Noirapi\Database\SQL;
 
+use Closure;
 use DateTimeInterface;
 use InvalidArgumentException;
 use LogicException;
 use Noirapi\Database\SQL\Clause\AggregateFunction;
+use Noirapi\Database\SQL\Clause\CallPart;
 use Noirapi\Database\SQL\Clause\ColumnPart;
 use Noirapi\Database\SQL\Clause\Condition;
 use Noirapi\Database\SQL\Clause\ExpressionPart;
@@ -45,6 +47,7 @@ use Noirapi\Database\SQL\Clause\SelectColumn;
 use Noirapi\Database\SQL\Clause\SqlFunction;
 use Noirapi\Database\SQL\Clause\SubqueryPart;
 use Noirapi\Database\SQL\Clause\UpdateColumn;
+use Noirapi\Database\SQL\Clause\UpsertClause;
 use Noirapi\Database\SQL\Clause\ValuePart;
 use Noirapi\Database\SQL\Clause\WhereBetween;
 use Noirapi\Database\SQL\Clause\WhereColumn;
@@ -56,10 +59,15 @@ use Noirapi\Database\SQL\Clause\WhereNested;
 use Noirapi\Database\SQL\Clause\WhereNop;
 use Noirapi\Database\SQL\Clause\WhereNull;
 
+use function array_diff;
 use function array_map;
+use function array_values;
 use function explode;
 use function get_debug_type;
 use function implode;
+use function is_bool;
+use function is_float;
+use function is_int;
 use function is_string;
 use function sprintf;
 use function str_replace;
@@ -81,6 +89,9 @@ class Compiler
 
     /** @var list<mixed> */
     protected array $params = [];
+
+    /** @var (Closure(string): string)|null Set while compiling with inlined literals */
+    protected ?Closure $quoter = null;
 
     public function select(SQLStatement $select): string
     {
@@ -107,9 +118,30 @@ class Compiler
         $sql = 'INSERT INTO ';
         $sql .= $this->handleTables($insert->getTables());
         $sql .= $columns === '*' ? '' : ' (' . $columns . ')';
-        $sql .= $this->handleInsertValues($insert->getValues());
+        $sql .= $this->handleInsertRows($insert->getInsertRows());
+        $sql .= $this->handleUpsert($insert->getUpsert(), $this->insertColumnNames($insert));
 
         return $sql;
+    }
+
+    /**
+     * Compiles a SELECT with every value inlined as a literal instead of a parameter, for
+     * statements that cannot take parameters (CREATE VIEW).
+     *
+     * @param Closure(string): string $quote Quotes a string literal, e.g. PDO::quote(...)
+     *
+     * @throws InvalidArgumentException When a value has no literal form
+     */
+    public function selectInline(SQLStatement $select, Closure $quote): string
+    {
+        $this->quoter = $quote;
+
+        try {
+            return $this->select($select);
+        } finally {
+            $this->quoter = null;
+            $this->params = [];
+        }
     }
 
     public function update(SQLStatement $update): string
@@ -214,9 +246,33 @@ class Compiler
             return $this->handleExpressions($value->getExpressions());
         }
 
-        $this->params[] = $value instanceof DateTimeInterface ? $value->format($this->dateFormat) : $value;
+        if ($value instanceof DateTimeInterface) {
+            $value = $value->format($this->dateFormat);
+        }
+
+        if ($this->quoter !== null) {
+            return $this->literal($value, $this->quoter);
+        }
+
+        $this->params[] = $value;
 
         return '?';
+    }
+
+    /**
+     * @param Closure(string): string $quote
+     *
+     * @throws InvalidArgumentException When the value has no literal form
+     */
+    protected function literal(mixed $value, Closure $quote): string
+    {
+        return match (true) {
+            $value === null => 'NULL',
+            is_bool($value) => $value ? '1' : '0',
+            is_int($value), is_float($value) => (string) $value,
+            is_string($value) => $quote($value),
+            default => throw new InvalidArgumentException('Cannot inline a ' . get_debug_type($value) . ' value'),
+        };
     }
 
     /**
@@ -234,6 +290,7 @@ class Compiler
                 $expr instanceof SubqueryPart => '(' . $this->select($expr->subquery->getSQLStatement()) . ')',
                 $expr instanceof AggregateFunction => $this->handleAggregateFunction($expr),
                 $expr instanceof SqlFunction => $this->handleSqlFunction($expr),
+                $expr instanceof CallPart => $this->handleCall($expr),
                 default => throw new LogicException('Unsupported expression part: ' . get_debug_type($expr)),
             };
         }
@@ -247,6 +304,11 @@ class Compiler
         $column = $func->name->value === 'COUNT' ? $this->columns($columns) : $this->wrap($columns[0]);
 
         return $func->name->value . '(' . ($func->distinct ? 'DISTINCT ' : '') . $column . ')';
+    }
+
+    protected function handleCall(CallPart $call): string
+    {
+        return $call->name . '(' . $this->params($call->args) . ')';
     }
 
     protected function handleSqlFunction(SqlFunction $func): string
@@ -405,11 +467,71 @@ class Compiler
     }
 
     /**
-     * @param list<mixed> $values
+     * @param list<list<mixed>> $rows
      */
-    protected function handleInsertValues(array $values): string
+    protected function handleInsertRows(array $rows): string
     {
-        return ' VALUES (' . $this->params($values) . ')';
+        return ' VALUES ' . implode(', ', array_map(fn (array $row): string => '(' . $this->params($row) . ')', $rows));
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function insertColumnNames(SQLStatement $insert): array
+    {
+        $names = [];
+        foreach ($insert->getColumns() as $column) {
+            if (is_string($column->name)) {
+                $names[] = $column->name;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * Resolves the SET list of an upsert: column names take the inserted value.
+     *
+     * @param list<string> $columns The inserted columns
+     *
+     * @return list<string|UpdateColumn>
+     */
+    protected function upsertAssignments(UpsertClause $upsert, array $columns): array
+    {
+        return $upsert->update ?? array_values(array_diff($columns, $upsert->keys));
+    }
+
+    /**
+     * ON CONFLICT (PostgreSQL, SQLite 3.24+).
+     *
+     * @param list<string> $columns The inserted columns
+     *
+     * @throws LogicException When updating without conflict keys
+     */
+    protected function handleUpsert(?UpsertClause $upsert, array $columns): string
+    {
+        if ($upsert === null) {
+            return '';
+        }
+
+        $target = $upsert->keys === [] ? '' : ' (' . $this->columns($upsert->keys) . ')';
+        $assignments = $this->upsertAssignments($upsert, $columns);
+        if ($assignments === []) {
+            return ' ON CONFLICT' . $target . ' DO NOTHING';
+        }
+
+        if ($target === '') {
+            throw new LogicException('upsert() needs the conflict key columns to update on this driver');
+        }
+
+        $sql = [];
+        foreach ($assignments as $assignment) {
+            $sql[] = is_string($assignment)
+                ? $this->wrap($assignment) . ' = excluded.' . $this->wrap($assignment)
+                : $this->wrap($assignment->column) . ' = ' . $this->param($assignment->value);
+        }
+
+        return ' ON CONFLICT' . $target . ' DO UPDATE SET ' . implode(', ', $sql);
     }
 
     protected function handleLimit(int $limit): string

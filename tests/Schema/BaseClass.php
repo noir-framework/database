@@ -278,6 +278,34 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
+    public function testJson(): void
+    {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
+            $table->json('a');
+        });
+
+        $this->execTest(__FUNCTION__, $result);
+    }
+
+    public function testAlterTableJson(): void
+    {
+        $result = $this->schema->alter('foo', function (AlterTable $table): void {
+            $table->json('a');
+            $table->toJson('b');
+        });
+
+        $this->execTest(__FUNCTION__, $result);
+    }
+
+    public function testAlterTableRenameColumn(): void
+    {
+        $result = $this->schema->alter('foo', function (AlterTable $table): void {
+            $table->renameColumn('a', 'b');
+        });
+
+        $this->execTest(__FUNCTION__, $result);
+    }
+
     private function execTest(string $test, string $result): void
     {
         $expected = static::$data[$test] ?? null;

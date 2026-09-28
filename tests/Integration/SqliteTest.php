@@ -10,6 +10,7 @@ use Noirapi\Database\Schema\AlterTable;
 use Noirapi\Database\Schema\CreateTable;
 use Noirapi\Database\SQL\Expression;
 use Noirapi\Database\SQL\Join;
+use Noirapi\Database\SQL\SelectStatement;
 use Noirapi\Database\SQL\Subquery;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
@@ -150,5 +151,107 @@ final class SqliteTest extends TestCase
             $table->string('email')->defaultValue('none');
         });
         $this->assertSame(['id', 'name', 'age', 'email'], $this->db->schema()->getColumns('users', true));
+    }
+
+    public function testInsertManyAndLastInsertId(): void
+    {
+        $this->assertTrue($this->db->insertMany([
+            ['name' => 'Dan', 'age' => 50],
+            ['age' => 51, 'name' => 'Eve'],
+        ])->into('users'));
+
+        $this->assertSame('5', $this->db->lastInsertId());
+        $this->assertSame(
+            [['Dan', 50], ['Eve', 51]],
+            $this->db->from('users')->where('id')->gt(3)->orderBy('id')->select(['name', 'age'])->fetchNum()->all(),
+        );
+        $this->assertSame($this->db->getConnection()->getDatabase(), $this->db->getConnection()->getDatabase());
+    }
+
+    public function testUpsert(): void
+    {
+        $this->db->schema()->create('stats', static function (CreateTable $table): void {
+            $table->string('page', 32)->notNull();
+            $table->integer('hits')->notNull();
+            $table->string('title', 32);
+            $table->primary('page');
+        });
+
+        $hit = fn (string $page, string $title) => $this->db->insert(['page' => $page, 'hits' => 1, 'title' => $title])
+            ->upsert('page', ['title', 'hits' => static fn (Expression $e) => $e->column('stats.hits')->op('+')->value(1)])
+            ->into('stats');
+
+        $hit('/', 'Home');
+        $hit('/', 'Home 2');
+        $hit('/about', 'About');
+
+        $this->db->insertMany([['page' => '/', 'hits' => 0, 'title' => 'x'], ['page' => '/new', 'hits' => 7, 'title' => 'y']])
+            ->upsert('page', [])
+            ->into('stats');
+
+        $this->assertSame(
+            [['/', 2, 'Home 2'], ['/about', 1, 'About'], ['/new', 7, 'y']],
+            $this->db->from('stats')->orderBy('page')->select()->fetchNum()->all(),
+        );
+
+        $this->db->insert(['page' => '/about', 'hits' => 9, 'title' => 'New'])->upsert('page')->into('stats');
+        $this->assertSame([9, 'New'], $this->db->from('stats')->where('page')->is('/about')->select(['hits', 'title'])->fetchNum()->first());
+    }
+
+    public function testWhereIsNull(): void
+    {
+        $this->db->insert(['name' => 'Nul', 'age' => null])->into('users');
+
+        $this->assertSame('Nul', $this->db->from('users')->where('age')->is(null)->column('name'));
+        $this->assertSame(3, $this->db->from('users')->where('age')->isNot(null)->count());
+    }
+
+    public function testJsonColumnKeepsText(): void
+    {
+        $this->db->schema()->alter('users', static function (AlterTable $table): void {
+            $table->json('meta');
+        });
+        $this->db->update('users')->where('id')->is(1)->set(['meta' => '1']);
+
+        $this->assertSame('1', $this->db->from('users')->where('id')->is(1)->column('meta'));
+    }
+
+    public function testViews(): void
+    {
+        $schema = $this->db->schema();
+        $schema->createView('adults', 'users', static function (SelectStatement $query): void {
+            $query->where('age')->gte(30)->andWhere('name')->isNot("O'Neil")->orderBy('name')->select(['id', 'name']);
+        });
+
+        $this->assertTrue($schema->hasView('ADULTS'));
+        $this->assertArrayNotHasKey('adults', $schema->getTables(true));
+        $this->assertSame([['Ann'], ['Cid']], $this->db->from('adults')->select('name')->fetchNum()->all());
+
+        $schema->dropView('adults');
+        $this->assertFalse($schema->hasView('adults'));
+    }
+
+    public function testRenameColumn(): void
+    {
+        $this->db->schema()->alter('users', static function (AlterTable $table): void {
+            $table->renameColumn('age', 'years');
+        });
+
+        $this->assertSame(['id', 'name', 'years'], $this->db->schema()->getColumns('users', true));
+    }
+
+    public function testLobParameter(): void
+    {
+        $this->db->schema()->create('files', static function (CreateTable $table): void {
+            $table->binary('data');
+        });
+        $stream = fopen('php://memory', 'w+b');
+        $this->assertIsResource($stream);
+        fwrite($stream, "\x00\x01binary");
+        rewind($stream);
+
+        $this->db->insert(['data' => $stream])->into('files');
+
+        $this->assertSame("\x00\x01binary", $this->db->from('files')->column('data'));
     }
 }

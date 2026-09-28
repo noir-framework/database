@@ -29,11 +29,13 @@ use RuntimeException;
 use function array_replace;
 use function array_shift;
 use function get_debug_type;
+use function get_resource_id;
 use function in_array;
 use function is_bool;
 use function is_float;
 use function is_int;
 use function is_object;
+use function is_resource;
 use function is_string;
 use function microtime;
 use function preg_replace_callback;
@@ -94,6 +96,8 @@ class Connection
     protected ?Schema\Compiler $schemaCompiler = null;
 
     protected ?Schema $schema = null;
+
+    protected ?Database $database = null;
 
     /** @var array<string, string> */
     protected array $compilerOptions = [];
@@ -242,6 +246,14 @@ class Connection
     public function getSchema(): Schema
     {
         return $this->schema ??= new Schema($this);
+    }
+
+    /**
+     * A Database bound to this connection, created once.
+     */
+    public function getDatabase(): Database
+    {
+        return $this->database ??= new Database($this);
     }
 
     /**
@@ -425,6 +437,7 @@ class Connection
                 $param === null => 'NULL',
                 is_bool($param) => $param ? 'TRUE' : 'FALSE',
                 is_string($param) => $compiler->quote($param),
+                is_resource($param) => $compiler->quote('RESOURCE#' . get_resource_id($param)),
                 default => $compiler->quote(get_debug_type($param)),
             };
         }, $query) ?? $query;
@@ -494,6 +507,7 @@ class Connection
                 $value === null => PDO::PARAM_NULL,
                 is_int($value) => PDO::PARAM_INT,
                 is_bool($value) => PDO::PARAM_BOOL,
+                is_resource($value) => PDO::PARAM_LOB,
                 default => PDO::PARAM_STR,
             };
             $statement->bindValue($key + 1, $value, $type);

@@ -22,8 +22,12 @@ declare(strict_types=1);
 namespace Noirapi\Database\SQL\Compiler;
 
 use Noirapi\Database\SQL\Clause\SqlFunction;
+use Noirapi\Database\SQL\Clause\UpsertClause;
 use Noirapi\Database\SQL\Compiler;
 use Override;
+
+use function implode;
+use function is_string;
 
 class MySQL extends Compiler
 {
@@ -42,5 +46,34 @@ class MySQL extends Compiler
     protected function sqlFunctionLEN(SqlFunction $func): string
     {
         return 'LENGTH(' . $this->wrap($func->column) . ')';
+    }
+
+    /**
+     * ON DUPLICATE KEY UPDATE, which fires on any unique key, so the conflict keys only matter
+     * for "do nothing" (a no-op assignment, since INSERT IGNORE would also swallow other errors).
+     * VALUES(col) is used rather than the MySQL 8.0.19 row alias so MariaDB is supported.
+     */
+    #[Override]
+    protected function handleUpsert(?UpsertClause $upsert, array $columns): string
+    {
+        if ($upsert === null) {
+            return '';
+        }
+
+        $assignments = $this->upsertAssignments($upsert, $columns);
+        if ($assignments === []) {
+            $column = $this->wrap($upsert->keys[0] ?? $columns[0] ?? 'id');
+
+            return ' ON DUPLICATE KEY UPDATE ' . $column . ' = ' . $column;
+        }
+
+        $sql = [];
+        foreach ($assignments as $assignment) {
+            $sql[] = is_string($assignment)
+                ? $this->wrap($assignment) . ' = VALUES(' . $this->wrap($assignment) . ')'
+                : $this->wrap($assignment->column) . ' = ' . $this->param($assignment->value);
+        }
+
+        return ' ON DUPLICATE KEY UPDATE ' . implode(', ', $sql);
     }
 }

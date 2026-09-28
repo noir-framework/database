@@ -68,7 +68,44 @@ needed either: the result is typed as `User|false`.
 | `AlterTable::getCommands()` | `array` rows | `Schema\AlterCommand` objects |
 | `Schema\Compiler::currentDatabase()` | `['result' => ...]` or query | `string` or query |
 | `Connection` serialization | `Serializable` | `__serialize()` / `__unserialize()` |
+| `where('a')->is(null)`, `isNot(null)`, `eq(null)`, `ne(null)` | `= NULL` (never matches) | `IS NULL` / `IS NOT NULL` |
+| SQLite `CREATE TABLE` after a table with an auto-increment column | PRIMARY KEY dropped | PRIMARY KEY kept |
+| MySQL `renameColumn()` | `CHANGE` (loses NOT NULL, default, comment) | `RENAME COLUMN`: needs MySQL 8 / MariaDB 10.5.2+ |
 
 Native parameter types are now declared everywhere. Code that passed unexpected types (for
 example `null` where a string is expected) will get a `TypeError` instead of silently
 producing SQL.
+
+## New in 5.0: multi-row inserts and upserts
+
+`insert()` keeps its single-row signature. Loops of single inserts can move to `insertMany()`:
+
+```php
+$db->insertMany([
+    ['name' => 'Ann', 'age' => 30],
+    ['name' => 'Bob', 'age' => null],   // every row needs the same columns
+])->into('users');
+```
+
+Replace "select, then insert or update" code with an upsert. `$keys` are the unique columns
+that detect the duplicate (required except on MySQL):
+
+```php
+$db->insert(['page' => '/', 'hits' => 1, 'title' => 'Home'])
+    ->upsert('page', [
+        'title',                                                     // take the inserted value
+        'hits' => fn (Expression $e) => $e->column('stats.hits')->op('+')->value(1),
+    ])
+    ->into('stats');
+
+$db->insertMany($rows)->upsert('id')->into('users');      // update every non-key column
+$db->insertMany($rows)->upsert('id', [])->into('users');  // insert, skip existing rows
+```
+
+Qualify columns of the existing row with the table name (`stats.hits`): PostgreSQL and SQL Server
+reject the bare name as ambiguous. On MySQL `lastInsertId()` after a multi-row insert is the
+first row's id.
+
+`$expr->COALESCE(...)` works at runtime, but PHPStan reports magic methods as undefined, so use
+`$expr->call('COALESCE', ...)` in analysed code.
+

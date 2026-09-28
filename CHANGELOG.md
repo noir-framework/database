@@ -2,6 +2,42 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## Unreleased
+
+### Added
+
+- `insertMany($rows)` on `Database` and `InsertStatement`: one multi-row `INSERT ... VALUES (...), (...)`.
+  Every row must have the same columns; mismatches throw `InvalidArgumentException`. `insert()` is
+  unchanged
+- `upsert($keys, $update = null)` on inserts: `ON CONFLICT ... DO UPDATE` (PostgreSQL, SQLite),
+  `ON DUPLICATE KEY UPDATE` (MySQL/MariaDB), `MERGE` (SQL Server). `$update` takes column names
+  (use the inserted value) and/or column => value; `[]` keeps the existing row
+- `Database::lastInsertId()` and `Connection::getDatabase()`
+- `Expression::call()`, magic `__call` (`$e->COALESCE(...)`), `Expression::fromCall()` and
+  `Expression::fromColumn()` for arbitrary SQL functions; function names are validated
+- `whereExpression()`, `andWhereExpression()`, `orWhereExpression()` and `Where::isNotNull()`
+- `json()` / `toJson()` column type: JSON (MySQL, PostgreSQL), TEXT (SQLite), NVARCHAR(max) (SQL Server)
+- Views: `Schema::createView()`, `dropView()`, `getViews()`, `hasView()`; values in the view's
+  query are inlined with `PDO::quote()` (`SQL\Compiler::selectInline()`)
+- Stream resources are bound as `PDO::PARAM_LOB`
+- MySQL/MariaDB integration tests (`NOIRAPI_DB_MYSQL_DSN`, `_USER`, `_PASSWORD`; skipped when unreachable)
+
+### Changed
+
+- `where('a')->is(null)` / `isNot(null)` (and `eq()` / `ne()`) compile to `IS NULL` / `IS NOT NULL`
+  instead of `= NULL` / `!= NULL`, which never matched
+- `Schema\Compiler`'s connection is optional; the base compiler emits `RENAME COLUMN`
+- MySQL column renames use `RENAME COLUMN` (MySQL 8, MariaDB 10.5.2+) instead of
+  `CHANGE old new <type>`, which dropped NOT NULL, defaults and comments
+- `SQL\Compiler::handleInsertValues()` replaced by `handleInsertRows()`
+- `Expression` property writes throw `LogicException`
+
+### Fixed
+
+- Renaming a column on SQLite generated no SQL
+- SQLite: after creating a table with an auto-increment column, every later `CREATE TABLE` on the
+  same connection lost its PRIMARY KEY (inherited from opis/database)
+
 ## v5.0.0-beta2 - 2026-09-28
 
 ### Changed

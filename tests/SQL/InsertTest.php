@@ -20,6 +20,8 @@ declare(strict_types=1);
 
 namespace Noirapi\Database\Test\SQL;
 
+use InvalidArgumentException;
+use LogicException;
 use Noirapi\Database\SQL\Expression;
 
 class InsertTest extends BaseClass
@@ -54,5 +56,58 @@ class InsertTest extends BaseClass
             },
         ])->into('users'));
         $this->assertEquals($expected, $actual);
+    }
+
+    public function testInsertMany(): void
+    {
+        $expected = 'INSERT INTO "users" ("name", "age") VALUES (\'foo\', 18), (\'bar\', 20), (\'baz\', NULL)';
+        $actual = $this->sql(fn () => $this->db->insertMany([
+            ['name' => 'foo', 'age' => 18],
+            ['age' => 20, 'name' => 'bar'],
+        ])->insertMany([['name' => 'baz', 'age' => null]])->into('users'));
+        $this->assertEquals($expected, $actual);
+    }
+
+    public function testInsertManyFollowsInsertColumns(): void
+    {
+        $expected = 'INSERT INTO "users" ("name", "age") VALUES (\'foo\', 18), (\'bar\', 20 + 1)';
+        $actual = $this->sql(fn () => $this->db->insert(['name' => 'foo', 'age' => 18])
+            ->insertMany([['age' => fn (Expression $e) => $e->value(20)->op('+')->value(1), 'name' => 'bar']])
+            ->into('users'));
+        $this->assertEquals($expected, $actual);
+    }
+
+    public function testInsertManyRejectsMismatchedRows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('row 1 must have exactly the columns: name, age');
+        $this->db->insertMany([['name' => 'foo', 'age' => 18], ['name' => 'bar']]);
+    }
+
+    public function testInsertManyRejectsExtraColumns(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->db->insertMany([['name' => 'foo'], ['name' => 'bar', 'email' => 'x']]);
+    }
+
+    public function testInsertManyRejectsListRows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->db->insertMany([['foo', 18]]); // @phpstan-ignore argument.type
+    }
+
+    public function testInsertAfterInsertManyThrows(): void
+    {
+        $this->expectException(LogicException::class);
+        $this->db->insertMany([['name' => 'foo']])->insert(['age' => 1]);
+    }
+
+    public function testInsertResourceIsLogged(): void
+    {
+        $stream = fopen('php://memory', 'rb');
+        $this->assertIsResource($stream);
+        $actual = $this->sql(fn () => $this->db->insert(['data' => $stream])->into('files'));
+        $this->assertEquals('INSERT INTO "files" ("data") VALUES (\'RESOURCE#' . get_resource_id($stream) . '\')', $actual);
+        fclose($stream);
     }
 }
