@@ -20,6 +20,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Views: `Schema::createView()`, `dropView()`, `getViews()`, `hasView()`; values in the view's
   query are inlined with `PDO::quote()` (`SQL\Compiler::selectInline()`)
 - Stream resources are bound as `PDO::PARAM_LOB`
+- `ResultSet::lazy()` (from opis/database PR #103) yields rows one at a time, and `ResultSet` is
+  iterable (`foreach ($query->select() as $row)`); both keep the `fetchClass()` row type
+- `stream()` on queries and `Connection::stream()`: unbuffered MySQL/MariaDB results for huge
+  reads; the connection is busy until the result is consumed or released (other drivers: `select()`)
 - MySQL/MariaDB integration tests (`NOIRAPI_DB_MYSQL_DSN`, `_USER`, `_PASSWORD`; skipped when unreachable)
 
 ### Changed

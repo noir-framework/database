@@ -45,6 +45,14 @@ class Connection extends \Noirapi\Database\Connection
     /**
      * @param list<mixed> $params
      */
+    public function stream(string $sql, array $params = []): ResultSet
+    {
+        return $this->query($sql, $params);
+    }
+
+    /**
+     * @param list<mixed> $params
+     */
     public function column(string $sql, array $params = []): mixed
     {
         $this->record($sql, $params);

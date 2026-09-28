@@ -58,6 +58,22 @@ class Select extends SelectStatement
     }
 
     /**
+     * Like select(), but streams the rows on MySQL instead of buffering them: iterate the result
+     * (`foreach` / `lazy()`) and finish it before running another query on this connection.
+     *
+     * @param ColumnArg|array<int|string, ColumnArg>|(Closure(ColumnExpression): mixed) $columns
+     *
+     * @return ResultSet<mixed>
+     */
+    public function stream(string|Expression|Closure|array $columns = []): ResultSet
+    {
+        parent::select($columns);
+        $compiler = $this->connection->getCompiler();
+
+        return $this->connection->stream($compiler->select($this->sql), $compiler->getParams());
+    }
+
+    /**
      * @param ColumnArg $name
      */
     #[Override]

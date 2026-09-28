@@ -165,6 +165,33 @@ final class MySqlTest extends TestCase
         $this->assertSame("\x00\x01binary", $this->db->from('t_files')->column('data'));
     }
 
+    public function testStreamUnbuffered(): void
+    {
+        $this->db->insertMany(array_map(
+            static fn (int $i): array => ['name' => 'user' . $i, 'age' => $i],
+            range(1, 500),
+        ))->into('t_users');
+
+        $sum = 0;
+        foreach ($this->db->from('t_users')->orderBy('id')->stream(['age'])->fetchAssoc() as $row) {
+            $sum += $row['age'];
+        }
+        $this->assertSame(125250, $sum);
+
+        foreach ($this->db->from('t_users')->orderBy('id')->stream(['age'])->fetchAssoc() as $row) {
+            $this->assertSame(1, $row['age']);
+            try {
+                $this->db->from('t_users')->count();
+                $this->fail('A second query must fail while the stream is open');
+            } catch (PDOException) {
+                // unbuffered: the server is still sending the streamed rows
+            }
+            break;
+        }
+        // the early break closed the cursor, so the connection is usable again
+        $this->assertSame(500, $this->db->from('t_users')->count());
+    }
+
     private function dropAll(): void
     {
         $pdo = $this->db->getConnection()->getPDO();

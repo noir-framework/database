@@ -117,6 +117,19 @@ class Query extends BaseStatement
     }
 
     /**
+     * Like select(), but streams the rows on MySQL instead of buffering them: iterate the result
+     * (`foreach` / `lazy()`) and finish it before running another query on this connection.
+     *
+     * @param ColumnArg|array<int|string, ColumnArg>|(Closure(ColumnExpression): mixed) $columns
+     *
+     * @return ResultSet<mixed>
+     */
+    public function stream(string|Expression|Closure|array $columns = []): ResultSet
+    {
+        return $this->buildSelect()->stream($columns);
+    }
+
+    /**
      * @param ColumnArg $name
      */
     public function column(string|Expression|Closure $name): mixed

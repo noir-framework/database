@@ -254,4 +254,30 @@ final class SqliteTest extends TestCase
 
         $this->assertSame("\x00\x01binary", $this->db->from('files')->column('data'));
     }
+
+    public function testLazyAndIteration(): void
+    {
+        $names = [];
+        foreach ($this->db->from('users')->orderBy('id')->select()->fetchClass(UserRow::class) as $user) {
+            $this->assertInstanceOf(UserRow::class, $user);
+            $names[] = $user->name;
+        }
+        $this->assertSame(['Ann', 'Bob', 'Cid'], $names);
+
+        foreach ($this->db->from('users')->orderBy('id')->select('name')->fetchNum()->lazy() as $row) {
+            $this->assertSame(['Ann'], $row);
+            break;
+        }
+
+        $this->db->insert(['name' => '0', 'age' => 0])->into('users');
+        $column = iterator_to_array(
+            $this->db->from('users')->orderBy('id')->select('name')->lazy(\PDO::FETCH_COLUMN),
+            false,
+        );
+        $this->assertSame(['Ann', 'Bob', 'Cid', '0'], $column);
+        $this->assertSame(['Ann', 'Bob'], iterator_to_array(
+            $this->db->from('users')->orderBy('id')->limit(2)->stream('name')->lazy(\PDO::FETCH_COLUMN),
+            false,
+        ));
+    }
 }

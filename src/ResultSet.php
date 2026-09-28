@@ -22,16 +22,22 @@ declare(strict_types=1);
 namespace Noirapi\Database;
 
 use Closure;
+use Generator;
+use IteratorAggregate;
+use Override;
 use PDO;
 use PDOStatement;
 
 /**
  * Wraps an executed PDOStatement. Choose a fetch mode (`fetchAssoc()`, `fetchClass()`, ...)
- * then read rows with `all()`, `first()` or `next()`.
+ * then read rows with `all()`, `first()` or `next()`, or iterate it (`foreach`, `lazy()`) to
+ * hydrate one row at a time.
  *
  * @template TRow
+ *
+ * @implements IteratorAggregate<int, TRow>
  */
-class ResultSet
+class ResultSet implements IteratorAggregate
 {
     private const int FETCH_FUNC = PDO::FETCH_FUNC;
 
@@ -68,6 +74,42 @@ class ResultSet
         }
 
         return $this->statement->fetchAll($this->withFunc($fetchStyle), $callable);
+    }
+
+    /**
+     * Yields the rows one at a time instead of building an array, and closes the cursor when
+     * done (or when the loop stops early). On MySQL the driver still buffers the whole result
+     * unless the query was run with `stream()`.
+     *
+     * @return ($fetchStyle is 0 ? Generator<int, TRow, mixed, void> : Generator<int, mixed, mixed, void>)
+     */
+    public function lazy(int $fetchStyle = 0): Generator
+    {
+        try {
+            while (true) {
+                /** @var TRow|false $row */
+                $row = $this->statement->fetch($fetchStyle);
+                if ($row === false) {
+                    return;
+                }
+
+                yield $row;
+            }
+        } finally {
+            $this->statement->closeCursor();
+        }
+    }
+
+    /**
+     * `foreach ($db->from('t')->select() as $row)` iterates lazily, see lazy().
+     *
+     * @return Generator<int, TRow, mixed, void>
+     */
+    #[Override]
+    public function getIterator(): Generator
+    {
+        /** @var Generator<int, TRow, mixed, void> */
+        return $this->lazy();
     }
 
     /**

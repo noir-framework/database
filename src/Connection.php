@@ -22,6 +22,7 @@ declare(strict_types=1);
 namespace Noirapi\Database;
 
 use PDO;
+use Pdo\Mysql;
 use PDOException;
 use PDOStatement;
 use RuntimeException;
@@ -343,6 +344,38 @@ class Connection
     public function command(string $sql, array $params = []): bool
     {
         return $this->execute($this->prepare($sql, $params));
+    }
+
+    /**
+     * Like query(), but on MySQL the rows are not buffered client-side: they are read from the
+     * server while iterating, so huge results use constant memory. Until the ResultSet is fully
+     * read (or destroyed) the connection cannot run other queries. Other drivers behave as query().
+     *
+     * @param list<mixed> $params
+     *
+     * @return ResultSet<mixed>
+     *
+     * @throws PDOException
+     */
+    public function stream(string $sql, array $params = []): ResultSet
+    {
+        if ($this->getDriver() !== 'mysql') {
+            return $this->query($sql, $params);
+        }
+
+        // pdo_mysql reads the buffering mode from the connection when the statement executes
+        $pdo = $this->getPDO();
+        $buffered = $pdo->getAttribute(Mysql::ATTR_USE_BUFFERED_QUERY);
+        $pdo->setAttribute(Mysql::ATTR_USE_BUFFERED_QUERY, false);
+
+        try {
+            $prepared = $this->prepare($sql, $params);
+            $this->execute($prepared);
+        } finally {
+            $pdo->setAttribute(Mysql::ATTR_USE_BUFFERED_QUERY, $buffered);
+        }
+
+        return new ResultSet($prepared['statement']);
     }
 
     /**

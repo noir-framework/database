@@ -36,6 +36,12 @@ function check(Database $db): void
     assertType('list<' . User::class . '>', $db->from('users')->select()->fetchClass(User::class)->all());
     assertType('stdClass|false', $db->from('users')->select()->fetchObject()->first());
     assertType('list<array<string, mixed>>', $db->from('users')->select()->fetchAssoc()->all());
+    assertType('Generator<int, ' . User::class . ', mixed, void>', $db->from('users')->select()->fetchClass(User::class)->lazy());
+    assertType('Generator<int, mixed, mixed, void>', $db->from('users')->select()->lazy(\PDO::FETCH_COLUMN));
+    assertType('Noirapi\Database\ResultSet<mixed>', $db->from('users')->stream(['a']));
+    foreach ($db->from('users')->select()->fetchClass(User::class) as $user) {
+        assertType(User::class, $user);
+    }
 
     assertType(Select::class, $db->from('users')->where('a')->is(1)->orderBy('a')->limit(5));
     assertType('Noirapi\Database\ResultSet<mixed>', $db->from('users')->orderBy('a')->limit(5)->offset(1)->select(['a', 'b']));
