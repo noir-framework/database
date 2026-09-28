@@ -127,7 +127,7 @@ class Query extends BaseStatement
     /**
      * @param ColumnArg|list<ColumnArg> $column
      */
-    public function count(string|Expression|Closure|array $column = '*', bool $distinct = false): mixed
+    public function count(string|Expression|Closure|array $column = '*', bool $distinct = false): int
     {
         return $this->buildSelect()->count($column, $distinct);
     }

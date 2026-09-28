@@ -37,7 +37,8 @@ function check(Database $db): void
 
     assertType(Select::class, $db->from('users')->where('a')->is(1)->orderBy('a')->limit(5));
     assertType('Noirapi\Database\ResultSet<mixed>', $db->from('users')->orderBy('a')->limit(5)->offset(1)->select(['a', 'b']));
-    assertType('mixed', $db->from('users')->where('a')->is(1)->count());
+    assertType('int', $db->from('users')->where('a')->is(1)->count());
+    assertType('mixed', $db->from('users')->where('a')->is(1)->max('a'));
 
     assertType('Noirapi\Database\SQL\Where<' . Update::class . '>', $db->update('users')->where('id'));
     assertType('int', $db->update('users')->where('id')->is(1)->set(['a' => 1]));

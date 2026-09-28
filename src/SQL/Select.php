@@ -26,6 +26,8 @@ use Noirapi\Database\Connection;
 use Noirapi\Database\ResultSet;
 use Override;
 
+use function is_numeric;
+
 /**
  * SELECT bound to a connection; the terminal methods run the query.
  *
@@ -70,11 +72,12 @@ class Select extends SelectStatement
      * @param ColumnArg|list<ColumnArg> $column
      */
     #[Override]
-    public function count(string|Expression|Closure|array $column = '*', bool $distinct = false): mixed
+    public function count(string|Expression|Closure|array $column = '*', bool $distinct = false): int
     {
         parent::count($column, $distinct);
 
-        return $this->getColumnResult();
+        // PDO returns a numeric string with emulated prepares, and false when a GROUP BY matches nothing.
+        return self::toInt($this->getColumnResult());
     }
 
     /**
@@ -119,6 +122,11 @@ class Select extends SelectStatement
         parent::max($column, $distinct);
 
         return $this->getColumnResult();
+    }
+
+    private static function toInt(mixed $value): int
+    {
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     protected function getColumnResult(): mixed

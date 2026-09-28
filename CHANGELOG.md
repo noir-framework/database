@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## v5.0.0-beta2 - 2026-09-28
+
+### Changed
+
+- `Query::count()` / `Select::count()` return `int` (a numeric string from emulated prepares
+  is converted, and an empty GROUP BY result gives `0`). Found while piloting on an app:
+  its `countActive(): int` style methods no longer need casts
+
 ## v5.0.0-beta1 - 2026-09-28
 
 First release as `noirapi/database`, a fork of `opis/database` 4.x. See [UPGRADE.md](UPGRADE.md).

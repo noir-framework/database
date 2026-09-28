@@ -81,6 +81,8 @@ final class SqliteTest extends TestCase
     public function testAggregatesJoinsAndSubqueries(): void
     {
         $this->assertSame(3, $this->db->from('users')->count());
+        $this->assertSame(0, $this->db->from('users')->where('age')->gt(100)->count());
+        $this->assertSame(0, $this->db->from('users')->where('age')->gt(100)->groupBy('age')->count());
         $this->assertSame(41, $this->db->from('users')->max('age'));
 
         $names = $this->db->from(['users' => 'u'])
