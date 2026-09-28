@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,159 +16,20 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\Schema\Compiler;
+declare(strict_types=1);namespace Noirapi\Database\Schema\Compiler;
 
-use Noirapi\Database\Schema\{
-    Compiler, BaseColumn, AlterTable, CreateTable
-};
+use Noirapi\Database\Schema\AlterCommand;
+use Noirapi\Database\Schema\AlterTable;
+use Noirapi\Database\Schema\BaseColumn;
+use Noirapi\Database\Schema\Compiler;
+use Noirapi\Database\Schema\CreateTable;
+use Override;
 
 class PostgreSQL extends Compiler
 {
-    /** @var string[] */
-    protected $modifiers = ['nullable', 'default'];
+    protected array $modifiers = ['nullable', 'default'];
 
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeInteger(BaseColumn $column): string
-    {
-        $autoincrement = $column->get('autoincrement', false);
-
-        switch ($column->get('size', 'normal')) {
-            case 'tiny':
-            case 'small':
-                return $autoincrement ? 'SMALLSERIAL' : 'SMALLINT';
-            case 'medium':
-                return $autoincrement ? 'SERIAL' : 'INTEGER';
-            case 'big':
-                return $autoincrement ? 'BIGSERIAL' : 'BIGINT';
-        }
-
-        return $autoincrement ? 'SERIAL' : 'INTEGER';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeFloat(BaseColumn $column): string
-    {
-        return 'REAL';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeDouble(BaseColumn $column): string
-    {
-        return 'DOUBLE PRECISION';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeDecimal(BaseColumn $column): string
-    {
-        if (null !== $l = $column->get('length')) {
-            if (null === $p = $column->get('precision')) {
-                return 'DECIMAL (' . $this->value($l) . ')';
-            }
-            return 'DECIMAL (' . $this->value($l) . ', ' . $this->value($p) . ')';
-        }
-        return 'DECIMAL';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeBinary(BaseColumn $column): string
-    {
-        return 'BYTEA';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeTime(BaseColumn $column): string
-    {
-        return 'TIME(0) WITHOUT TIME ZONE';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeTimestamp(BaseColumn $column): string
-    {
-        return 'TIMESTAMP(0) WITHOUT TIME ZONE';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeDateTime(BaseColumn $column): string
-    {
-        return 'TIMESTAMP(0) WITHOUT TIME ZONE';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleIndexKeys(CreateTable $schema): array
-    {
-        $indexes = $schema->getIndexes();
-
-        if (empty($indexes)) {
-            return [];
-        }
-
-        $sql = [];
-
-        $table = $schema->getTableName();
-
-        foreach ($indexes as $name => $columns) {
-            $sql[] = 'CREATE INDEX ' . $this->wrap($table . '_' . $name) . ' ON ' . $this->wrap($table) . '(' . $this->wrapArray($columns) . ')';
-        }
-
-        return $sql;
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleRenameColumn(AlterTable $table, $data): string
-    {
-        /** @var BaseColumn $column */
-        $column = $data['column'];
-        return 'ALTER TABLE ' . $this->wrap($table->getTableName()) . ' RENAME COLUMN '
-            . $this->wrap($data['from']) . ' TO ' . $this->wrap($column->getName());
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleAddIndex(AlterTable $table, $data): string
-    {
-        return 'CREATE INDEX ' . $this->wrap($table->getTableName() . '_' . $data['name']) . ' ON ' . $this->wrap($table->getTableName()) . ' (' . $this->wrapArray($data['columns']) . ')';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleDropIndex(AlterTable $table, $data): string
-    {
-        return 'DROP INDEX ' . $this->wrap($table->getTableName() . '_' . $data);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleEngine(CreateTable $schema): string
-    {
-        return '';
-    }
-
-    /**
-     * @inheritdoc
-     */
+    #[Override]
     public function getColumns(string $database, string $table): array
     {
         $sql = 'SELECT ' . $this->wrap('column_name') . ' AS ' . $this->wrap('name')
@@ -176,31 +38,117 @@ class PostgreSQL extends Compiler
             . ' WHERE ' . $this->wrap('table_schema') . ' = ? AND ' . $this->wrap('table_name') . ' = ? '
             . ' ORDER BY ' . $this->wrap('ordinal_position') . ' ASC';
 
-        return [
-            'sql' => $sql,
-            'params' => [$database, $table],
-        ];
+        return ['sql' => $sql, 'params' => [$database, $table]];
     }
 
-    /**
-     * @inheritdoc
-     */
+    #[Override]
     public function currentDatabase(string $dsn): array
     {
-        return [
-            'sql' => 'SELECT current_schema()',
-            'params' => [],
-        ];
+        return ['sql' => 'SELECT current_schema()', 'params' => []];
+    }
+
+    #[Override]
+    public function renameTable(string $current, string $new): array
+    {
+        return ['sql' => 'ALTER TABLE ' . $this->wrap($current) . ' RENAME TO ' . $this->wrap($new), 'params' => []];
     }
 
     /**
-     * @inheritdoc
+     * Auto-increment integers become SERIAL types.
      */
-    public function renameTable(string $current, string $new): array
+    #[Override]
+    protected function handleTypeInteger(BaseColumn $column): string
     {
-        return [
-            'sql' => 'ALTER TABLE ' . $this->wrap($current) . ' RENAME TO ' . $this->wrap($new),
-            'params' => [],
-        ];
+        $serial = $column->isAutoincrement();
+
+        return match ($column->getSize()) {
+            'tiny', 'small' => $serial ? 'SMALLSERIAL' : 'SMALLINT',
+            'medium', 'normal' => $serial ? 'SERIAL' : 'INTEGER',
+            'big' => $serial ? 'BIGSERIAL' : 'BIGINT',
+        };
+    }
+
+    #[Override]
+    protected function handleTypeFloat(BaseColumn $column): string
+    {
+        return 'REAL';
+    }
+
+    #[Override]
+    protected function handleTypeDouble(BaseColumn $column): string
+    {
+        return 'DOUBLE PRECISION';
+    }
+
+    #[Override]
+    protected function handleTypeDecimal(BaseColumn $column): string
+    {
+        return $this->decimal($column, ' ');
+    }
+
+    #[Override]
+    protected function handleTypeBinary(BaseColumn $column): string
+    {
+        return 'BYTEA';
+    }
+
+    #[Override]
+    protected function handleTypeTime(BaseColumn $column): string
+    {
+        return 'TIME(0) WITHOUT TIME ZONE';
+    }
+
+    #[Override]
+    protected function handleTypeTimestamp(BaseColumn $column): string
+    {
+        return 'TIMESTAMP(0) WITHOUT TIME ZONE';
+    }
+
+    #[Override]
+    protected function handleTypeDateTime(BaseColumn $column): string
+    {
+        return 'TIMESTAMP(0) WITHOUT TIME ZONE';
+    }
+
+    /**
+     * Index names are schema-wide in PostgreSQL, so they are prefixed with the table name.
+     */
+    #[Override]
+    protected function handleIndexKeys(CreateTable $schema): array
+    {
+        $sql = [];
+        $table = $schema->getTableName();
+        foreach ($schema->getIndexes() as $name => $columns) {
+            $sql[] = 'CREATE INDEX ' . $this->wrap($table . '_' . $name) . ' ON ' . $this->wrap($table)
+                . '(' . $this->wrapArray($columns) . ')';
+        }
+
+        return $sql;
+    }
+
+    #[Override]
+    protected function handleRenameColumn(AlterTable $table, AlterCommand $command): string
+    {
+        return $this->alterTable($table) . ' RENAME COLUMN ' . $this->wrap($command->name)
+            . ' TO ' . $this->wrap($command->column()->getName());
+    }
+
+    #[Override]
+    protected function handleAddIndex(AlterTable $table, AlterCommand $command): string
+    {
+        return 'CREATE INDEX ' . $this->wrap($table->getTableName() . '_' . $command->name)
+            . ' ON ' . $this->wrap($table->getTableName()) . ' (' . $this->wrapArray($command->columns) . ')';
+    }
+
+    #[Override]
+    protected function handleDropIndex(AlterTable $table, AlterCommand $command): string
+    {
+        return 'DROP INDEX ' . $this->wrap($table->getTableName() . '_' . $command->name);
+    }
+
+    #[Override]
+    protected function handleEngine(CreateTable $schema): string
+    {
+        return '';
     }
 }

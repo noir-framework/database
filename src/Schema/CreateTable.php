@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,65 +16,46 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\Schema;
+declare(strict_types=1);namespace Noirapi\Database\Schema;
 
+use function implode;
+use function is_array;
+
+/**
+ * CREATE TABLE definition passed to Schema::create() callbacks.
+ */
 class CreateTable
 {
-    /** @var CreateColumn[] */
-    protected $columns = [];
+    /** @var array<string, CreateColumn> */
+    protected array $columns = [];
 
-    /** @var string|string[] */
-    protected $primaryKey;
+    /** @var array{name: string, columns: list<string>}|null */
+    protected ?array $primaryKey = null;
 
-    /** @var string[] */
-    protected $uniqueKeys = [];
+    /** @var array<string, list<string>> */
+    protected array $uniqueKeys = [];
 
-    /** @var array */
-    protected $indexes = [];
+    /** @var array<string, list<string>> */
+    protected array $indexes = [];
 
-    /** @var array */
-    protected $foreignKeys = [];
+    /** @var array<string, ForeignKey> */
+    protected array $foreignKeys = [];
 
-    /** @var string */
-    protected $table;
+    protected ?string $engine = null;
 
-    /** @var string|null */
-    protected $engine;
+    protected ?CreateColumn $autoincrement = null;
 
-    /** @var bool|null */
-    protected $autoincrement;
-
-    /**
-     * CreateTable constructor.
-     * @param string $table
-     */
-    public function __construct(string $table)
+    public function __construct(protected string $table)
     {
-        $this->table = $table;
     }
 
-    /**
-     * @param string $name
-     * @param string $type
-     * @return CreateColumn
-     */
-    protected function addColumn(string $name, string $type): CreateColumn
-    {
-        $column = new CreateColumn($this, $name, $type);
-        $this->columns[$name] = $column;
-        return $column;
-    }
-
-    /**
-     * @return string
-     */
     public function getTableName(): string
     {
         return $this->table;
     }
 
     /**
-     * @return CreateColumn[]
+     * @return array<string, CreateColumn>
      */
     public function getColumns(): array
     {
@@ -81,80 +63,62 @@ class CreateTable
     }
 
     /**
-     * @return  mixed
+     * @return array{name: string, columns: list<string>}|null
      */
-    public function getPrimaryKey()
+    public function getPrimaryKey(): ?array
     {
         return $this->primaryKey;
     }
 
     /**
-     * @return  array
+     * @return array<string, list<string>>
      */
-    public function getUniqueKeys()
+    public function getUniqueKeys(): array
     {
         return $this->uniqueKeys;
     }
 
     /**
-     * @return  array
+     * @return array<string, list<string>>
      */
-    public function getIndexes()
+    public function getIndexes(): array
     {
         return $this->indexes;
     }
 
     /**
-     * @return  array
+     * @return array<string, ForeignKey>
      */
-    public function getForeignKeys()
+    public function getForeignKeys(): array
     {
         return $this->foreignKeys;
     }
 
-    /**
-     * @return  mixed
-     */
-    public function getEngine()
+    public function getEngine(): ?string
     {
         return $this->engine;
     }
 
-    /**
-     * @return  mixed
-     */
-    public function getAutoincrement()
+    public function getAutoincrement(): ?CreateColumn
     {
         return $this->autoincrement;
     }
 
-    /***
-     * @param string $name
-     * @return $this
-     */
-    public function engine(string $name): self
+    public function engine(string $name): static
     {
         $this->engine = $name;
+
         return $this;
     }
 
     /**
-     * @param string|string[] $columns
-     * @param string|null $name
-     * @return $this
+     * @param string|list<string> $columns
      */
-    public function primary($columns, string $name = null): self
+    public function primary(string|array $columns, ?string $name = null): static
     {
-        if (!is_array($columns)) {
-            $columns = [$columns];
-        }
-
-        if ($name === null) {
-            $name = $this->table . '_pk_' . implode('_', $columns);
-        }
-
+        $columns = is_array($columns) ? $columns : [$columns];
         $this->primaryKey = [
-            'name' => $name,
+            'name' => $name ?? $this->table . '_pk_' . implode('_', $columns),
             'columns' => $columns,
         ];
 
@@ -162,218 +126,133 @@ class CreateTable
     }
 
     /**
-     * @param string|string[] $columns
-     * @param string|null $name
-     * @return $this
+     * @param string|list<string> $columns
      */
-    public function unique($columns, string $name = null): self
+    public function unique(string|array $columns, ?string $name = null): static
     {
-        if (!is_array($columns)) {
-            $columns = [$columns];
-        }
-
-        if ($name === null) {
-            $name = $this->table . '_uk_' . implode('_', $columns);
-        }
-
-        $this->uniqueKeys[$name] = $columns;
+        $columns = is_array($columns) ? $columns : [$columns];
+        $this->uniqueKeys[$name ?? $this->table . '_uk_' . implode('_', $columns)] = $columns;
 
         return $this;
     }
 
     /**
-     * @param string|string[] $columns
-     * @param string|null $name
-     * @return $this
+     * @param string|list<string> $columns
      */
-    public function index($columns, string $name = null)
+    public function index(string|array $columns, ?string $name = null): static
     {
-        if (!is_array($columns)) {
-            $columns = [$columns];
-        }
-
-        if ($name === null) {
-            $name = $this->table . '_ik_' . implode('_', $columns);
-        }
-
-        $this->indexes[$name] = $columns;
+        $columns = is_array($columns) ? $columns : [$columns];
+        $this->indexes[$name ?? $this->table . '_ik_' . implode('_', $columns)] = $columns;
 
         return $this;
     }
 
     /**
-     * @param string|string[] $columns
-     * @param string|null $name
-     * @return ForeignKey
+     * @param string|list<string> $columns
      */
-    public function foreign($columns, string $name = null): ForeignKey
+    public function foreign(string|array $columns, ?string $name = null): ForeignKey
     {
-        if (!is_array($columns)) {
-            $columns = [$columns];
-        }
+        $columns = is_array($columns) ? $columns : [$columns];
 
-        if ($name === null) {
-            $name = $this->table . '_fk_' . implode('_', $columns);
-        }
-
-        return $this->foreignKeys[$name] = new ForeignKey($columns);
+        return $this->foreignKeys[$name ?? $this->table . '_fk_' . implode('_', $columns)] = new ForeignKey($columns);
     }
 
     /**
-     * @param CreateColumn $column
-     * @param string|null $name
-     * @return $this
+     * Marks an integer column as auto-incrementing primary key; ignored for other types.
      */
-    public function autoincrement(CreateColumn $column, string $name = null): self
+    public function autoincrement(CreateColumn $column, ?string $name = null): static
     {
         if ($column->getType() !== 'integer') {
             return $this;
         }
 
         $this->autoincrement = $column->set('autoincrement', true);
+
         return $this->primary($column->getName(), $name);
     }
 
-    /**
-     * @param string $name
-     * @return CreateColumn
-     */
     public function integer(string $name): CreateColumn
     {
         return $this->addColumn($name, 'integer');
     }
 
-    /**
-     * @param string $name
-     * @return CreateColumn
-     */
     public function float(string $name): CreateColumn
     {
         return $this->addColumn($name, 'float');
     }
 
-    /**
-     * @param string $name
-     * @return CreateColumn
-     */
     public function double(string $name): CreateColumn
     {
         return $this->addColumn($name, 'double');
     }
 
-    /**
-     * @param string $name
-     * @param int|null $length
-     * @param int|null $precision
-     * @return CreateColumn
-     */
-    public function decimal(string $name, int $length = null, int $precision = null): CreateColumn
-    {
-        return $this->addColumn($name, 'decimal')->length($length)->set('precision', $precision);
-    }
-
-    /**
-     * @param string $name
-     * @return CreateColumn
-     */
     public function boolean(string $name): CreateColumn
     {
         return $this->addColumn($name, 'boolean');
     }
 
-    /**
-     * @param string $name
-     * @return CreateColumn
-     */
     public function binary(string $name): CreateColumn
     {
         return $this->addColumn($name, 'binary');
     }
 
-    /**
-     * @param string $name
-     * @param int $length
-     * @return CreateColumn
-     */
-    public function string(string $name, int $length = 255): CreateColumn
-    {
-        return $this->addColumn($name, 'string')->length($length);
-    }
-
-    /**
-     * @param string $name
-     * @param int $length
-     * @return CreateColumn
-     */
-    public function fixed(string $name, int $length = 255): CreateColumn
-    {
-        return $this->addColumn($name, 'fixed')->length($length);
-    }
-
-    /**
-     * @param string $name
-     * @return CreateColumn
-     */
     public function text(string $name): CreateColumn
     {
         return $this->addColumn($name, 'text');
     }
 
-    /***
-     * @param string $name
-     * @return CreateColumn
-     */
     public function time(string $name): CreateColumn
     {
         return $this->addColumn($name, 'time');
     }
 
-    /**
-     * @param string $name
-     * @return CreateColumn
-     */
     public function timestamp(string $name): CreateColumn
     {
         return $this->addColumn($name, 'timestamp');
     }
 
-    /**
-     * @param string $name
-     * @return CreateColumn
-     */
     public function date(string $name): CreateColumn
     {
         return $this->addColumn($name, 'date');
     }
 
-    /**
-     * @param string $name
-     * @return CreateColumn
-     */
     public function dateTime(string $name): CreateColumn
     {
         return $this->addColumn($name, 'dateTime');
     }
 
-    /**
-     * @param string $column
-     * @return $this
-     */
-    public function softDelete(string $column = 'deleted_at'): self
+    public function decimal(string $name, ?int $length = null, ?int $precision = null): CreateColumn
+    {
+        return $this->addColumn($name, 'decimal')->length($length)->set('precision', $precision);
+    }
+
+    public function string(string $name, int $length = 255): CreateColumn
+    {
+        return $this->addColumn($name, 'string')->length($length);
+    }
+
+    public function fixed(string $name, int $length = 255): CreateColumn
+    {
+        return $this->addColumn($name, 'fixed')->length($length);
+    }
+
+    public function softDelete(string $column = 'deleted_at'): static
     {
         $this->dateTime($column);
+
         return $this;
     }
 
-    /**
-     * @param string $createColumn
-     * @param string $updateColumn
-     * @return $this
-     */
-    public function timestamps(string $createColumn = 'created_at', string $updateColumn = 'updated_at'): self
+    public function timestamps(string $createColumn = 'created_at', string $updateColumn = 'updated_at'): static
     {
         $this->dateTime($createColumn)->notNull();
         $this->dateTime($updateColumn);
+
         return $this;
+    }
+
+    protected function addColumn(string $name, string $type): CreateColumn
+    {
+        return $this->columns[$name] = new CreateColumn($this, $name, $type);
     }
 }

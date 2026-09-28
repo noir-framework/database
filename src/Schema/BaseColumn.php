@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,150 +16,169 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\Schema;
+declare(strict_types=1);namespace Noirapi\Database\Schema;
 
+use function in_array;
+use function is_bool;
+use function is_int;
+use function is_string;
+use function strtolower;
+
+/**
+ * A column definition: a name, an abstract type and a bag of properties
+ * (size, nullable, default, unsigned, length, precision, autoincrement, description).
+ */
 class BaseColumn
 {
-    /** @var string */
-    protected $name;
+    /** @var array<string, mixed> */
+    protected array $properties = [];
 
-    /** @var string */
-    protected $type;
-
-    /** @var array */
-    protected $properties = [];
-
-    /**
-     * BaseColumn constructor.
-     * @param string $name
-     * @param string|null $type
-     */
-    public function __construct(string $name, string $type = null)
+    public function __construct(protected string $name, protected ?string $type = null)
     {
-        $this->name = $name;
-        $this->type = $type;
     }
 
-    /**
-     * @return string
-     */
     public function getName(): string
     {
         return $this->name;
     }
 
-    /**
-     * @return string
-     */
     public function getType(): string
     {
-        return $this->type;
+        return $this->type ?? '';
     }
 
     /**
-     * @return array
+     * @return array<string, mixed>
      */
     public function getProperties(): array
     {
         return $this->properties;
     }
 
-    /**
-     * @param string $type
-     * @return $this
-     */
-    public function setType(string $type): self
+    public function setType(string $type): static
     {
         $this->type = $type;
+
         return $this;
     }
 
-    /**
-     * @param string $name
-     * @param $value
-     * @return $this
-     */
-    public function set(string $name, $value): self
+    public function set(string $name, mixed $value): static
     {
         $this->properties[$name] = $value;
+
         return $this;
     }
 
-    /**
-     * @param string $name
-     * @return bool
-     */
     public function has(string $name): bool
     {
         return isset($this->properties[$name]);
     }
 
-    /**
-     * @param string $name
-     * @param mixed|null $default
-     * @return mixed|null
-     */
-    public function get(string $name, $default = null)
+    public function get(string $name, mixed $default = null): mixed
     {
-        return isset($this->properties[$name]) ? $this->properties[$name] : $default;
+        return $this->properties[$name] ?? $default;
     }
 
     /**
-     * @param string $value
-     * @return $this
+     * @param string $value tiny, small, normal, medium or big; anything else is ignored
      */
-    public function size(string $value): self
+    public function size(string $value): static
     {
         $value = strtolower($value);
-
-        if (!in_array($value, ['tiny', 'small', 'normal', 'medium', 'big'])) {
+        if (!in_array($value, ['tiny', 'small', 'normal', 'medium', 'big'], true)) {
             return $this;
         }
 
         return $this->set('size', $value);
     }
 
-    /**
-     * @return $this
-     */
-    public function notNull(): self
+    public function notNull(): static
     {
         return $this->set('nullable', false);
     }
 
-    /**
-     * @param string $comment
-     * @return $this
-     */
-    public function description(string $comment): self
+    public function description(string $comment): static
     {
         return $this->set('description', $comment);
     }
 
-    /**
-     * @param $value
-     * @return $this
-     */
-    public function defaultValue($value): self
+    public function defaultValue(mixed $value): static
     {
         return $this->set('default', $value);
     }
 
-    /**
-     * @param bool $value
-     * @return $this
-     */
-    public function unsigned(bool $value = true): self
+    public function unsigned(bool $value = true): static
     {
         return $this->set('unsigned', $value);
     }
 
-    /**
-     * @param $value
-     * @return $this
-     */
-    public function length($value): self
+    public function length(?int $value): static
     {
         return $this->set('length', $value);
+    }
+
+    /**
+     * @return 'tiny'|'small'|'normal'|'medium'|'big'
+     */
+    public function getSize(): string
+    {
+        return match ($this->properties['size'] ?? null) {
+            'tiny' => 'tiny',
+            'small' => 'small',
+            'medium' => 'medium',
+            'big' => 'big',
+            default => 'normal',
+        };
+    }
+
+    public function isNullable(): bool
+    {
+        return $this->bool('nullable', true);
+    }
+
+    public function isUnsigned(): bool
+    {
+        return $this->bool('unsigned', false);
+    }
+
+    public function isAutoincrement(): bool
+    {
+        return $this->bool('autoincrement', false);
+    }
+
+    public function getDefault(): mixed
+    {
+        return $this->properties['default'] ?? null;
+    }
+
+    public function getLength(): ?int
+    {
+        return $this->int('length');
+    }
+
+    public function getPrecision(): ?int
+    {
+        return $this->int('precision');
+    }
+
+    public function getDescription(): ?string
+    {
+        $value = $this->properties['description'] ?? null;
+
+        return is_string($value) ? $value : null;
+    }
+
+    private function bool(string $name, bool $default): bool
+    {
+        $value = $this->properties[$name] ?? null;
+
+        return is_bool($value) ? $value : $default;
+    }
+
+    private function int(string $name): ?int
+    {
+        $value = $this->properties[$name] ?? null;
+
+        return is_int($value) ? $value : null;
     }
 }

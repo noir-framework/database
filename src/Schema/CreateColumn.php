@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,70 +16,48 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\Schema;
+declare(strict_types=1);namespace Noirapi\Database\Schema;
 
+/**
+ * A column of a CREATE TABLE; key helpers delegate to the owning table.
+ */
 class CreateColumn extends BaseColumn
 {
-    /** @var string */
-    protected $table;
-
-    /**
-     * CreateColumn constructor.
-     * @param CreateTable $table
-     * @param string $name
-     * @param string $type
-     */
-    public function __construct(CreateTable $table, string $name, string $type)
+    public function __construct(protected CreateTable $table, string $name, string $type)
     {
-        $this->table = $table;
         parent::__construct($name, $type);
     }
 
-    /**
-     * @return string
-     */
-    public function getTable(): string
+    public function getTable(): CreateTable
     {
         return $this->table;
     }
 
-    /**
-     * @param string|null $name
-     * @return $this
-     */
-    public function autoincrement(string $name = null): self
+    public function autoincrement(?string $name = null): static
     {
         $this->table->autoincrement($this, $name);
+
         return $this;
     }
 
-    /**
-     * @param string|null $name
-     * @return $this
-     */
-    public function primary(string $name = null): self
+    public function primary(?string $name = null): static
     {
         $this->table->primary($this->name, $name);
+
         return $this;
     }
 
-    /**
-     * @param string|null $name
-     * @return $this
-     */
-    public function unique(string $name = null): self
+    public function unique(?string $name = null): static
     {
         $this->table->unique($this->name, $name);
+
         return $this;
     }
 
-    /**
-     * @param string|null $name
-     * @return $this
-     */
-    public function index(string $name = null): self
+    public function index(?string $name = null): static
     {
         $this->table->index($this->name, $name);
+
         return $this;
     }
 }

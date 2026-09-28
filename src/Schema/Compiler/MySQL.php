@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,158 +16,114 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\Schema\Compiler;
+declare(strict_types=1);namespace Noirapi\Database\Schema\Compiler;
 
-use Noirapi\Database\Schema\{
-    Compiler, BaseColumn, AlterTable
-};
+use Noirapi\Database\Schema\AlterCommand;
+use Noirapi\Database\Schema\AlterTable;
+use Noirapi\Database\Schema\BaseColumn;
+use Noirapi\Database\Schema\Compiler;
+use Override;
+
+use function is_array;
 
 class MySQL extends Compiler
 {
-    /** @var string */
-    protected $wrapper = '`%s`';
+    protected string $wrapper = '`%s`';
 
-    /**
-     * @inheritdoc
-     */
+    #[Override]
     protected function handleTypeInteger(BaseColumn $column): string
     {
-        switch ($column->get('size', 'normal')) {
-            case 'tiny':
-                return 'TINYINT';
-            case 'small':
-                return 'SMALLINT';
-            case 'medium':
-                return 'MEDIUMINT';
-            case 'big':
-                return 'BIGINT';
-        }
-
-        return 'INT';
+        return match ($column->getSize()) {
+            'tiny' => 'TINYINT',
+            'small' => 'SMALLINT',
+            'medium' => 'MEDIUMINT',
+            'big' => 'BIGINT',
+            'normal' => 'INT',
+        };
     }
 
-    /**
-     * @inheritdoc
-     */
+    #[Override]
     protected function handleTypeDecimal(BaseColumn $column): string
     {
-        if (null !== $l = $column->get('length')) {
-            if (null === $p = $column->get('precision')) {
-                return 'DECIMAL(' . $this->value($l) . ')';
-            }
-            return 'DECIMAL(' . $this->value($l) . ', ' . $this->value($p) . ')';
-        }
-        return 'DECIMAL';
+        return $this->decimal($column);
     }
 
-    /**
-     * @inheritdoc
-     */
+    #[Override]
     protected function handleTypeBoolean(BaseColumn $column): string
     {
         return 'TINYINT(1)';
     }
 
-    /**
-     * @inheritdoc
-     */
+    #[Override]
     protected function handleTypeText(BaseColumn $column): string
     {
-        switch ($column->get('size', 'normal')) {
-            case 'tiny':
-            case 'small':
-                return 'TINYTEXT';
-            case 'medium':
-                return 'MEDIUMTEXT';
-            case 'big':
-                return 'LONGTEXT';
-        }
-
-        return 'TEXT';
+        return match ($column->getSize()) {
+            'tiny', 'small' => 'TINYTEXT',
+            'medium' => 'MEDIUMTEXT',
+            'big' => 'LONGTEXT',
+            'normal' => 'TEXT',
+        };
     }
 
-    /**
-     * @inheritdoc
-     */
+    #[Override]
     protected function handleTypeBinary(BaseColumn $column): string
     {
-        switch ($column->get('size', 'normal')) {
-            case 'tiny':
-            case 'small':
-                return 'TINYBLOB';
-            case 'medium':
-                return 'MEDIUMBLOB';
-            case 'big':
-                return 'LONGBLOB';
-        }
+        return match ($column->getSize()) {
+            'tiny', 'small' => 'TINYBLOB',
+            'medium' => 'MEDIUMBLOB',
+            'big' => 'LONGBLOB',
+            'normal' => 'BLOB',
+        };
+    }
 
-        return 'BLOB';
+    #[Override]
+    protected function handleDropPrimaryKey(AlterTable $table, AlterCommand $command): string
+    {
+        return $this->alterTable($table) . ' DROP PRIMARY KEY';
+    }
+
+    #[Override]
+    protected function handleDropUniqueKey(AlterTable $table, AlterCommand $command): string
+    {
+        return $this->alterTable($table) . ' DROP INDEX ' . $this->wrap($command->name);
+    }
+
+    #[Override]
+    protected function handleDropIndex(AlterTable $table, AlterCommand $command): string
+    {
+        return $this->alterTable($table) . ' DROP INDEX ' . $this->wrap($command->name);
+    }
+
+    #[Override]
+    protected function handleDropForeignKey(AlterTable $table, AlterCommand $command): string
+    {
+        return $this->alterTable($table) . ' DROP FOREIGN KEY ' . $this->wrap($command->name);
+    }
+
+    #[Override]
+    protected function handleSetDefaultValue(AlterTable $table, AlterCommand $command): string
+    {
+        return $this->alterTable($table) . ' ALTER ' . $this->wrap($command->name)
+            . ' SET DEFAULT ' . $this->value($command->value);
+    }
+
+    #[Override]
+    protected function handleDropDefaultValue(AlterTable $table, AlterCommand $command): string
+    {
+        return $this->alterTable($table) . ' ALTER ' . $this->wrap($command->name) . ' DROP DEFAULT';
     }
 
     /**
-     * @inheritdoc
+     * MySQL's CHANGE needs the column type, which is looked up from the live table.
      */
-    protected function handleDropPrimaryKey(AlterTable $table, $data): string
+    #[Override]
+    protected function handleRenameColumn(AlterTable $table, AlterCommand $command): string
     {
-        return 'ALTER TABLE ' . $this->wrap($table->getTableName()) . ' DROP PRIMARY KEY';
-    }
+        $tableName = $table->getTableName();
+        $columns = $this->connection->getSchema()->getColumns($tableName, false, false);
+        $type = is_array($columns) && isset($columns[$command->name]) ? $columns[$command->name]['type'] : 'integer';
 
-    /**
-     * @inheritdoc
-     */
-    protected function handleDropUniqueKey(AlterTable $table, $data): string
-    {
-        return 'ALTER TABLE ' . $this->wrap($table->getTableName()) . ' DROP INDEX ' . $this->wrap($data);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleDropIndex(AlterTable $table, $data): string
-    {
-        return 'ALTER TABLE ' . $this->wrap($table->getTableName()) . ' DROP INDEX ' . $this->wrap($data);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleDropForeignKey(AlterTable $table, $data): string
-    {
-        return 'ALTER TABLE ' . $this->wrap($table->getTableName()) . ' DROP FOREIGN KEY ' . $this->wrap($data);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleSetDefaultValue(AlterTable $table, $data): string
-    {
-        return 'ALTER TABLE ' . $this->wrap($table->getTableName()) . ' ALTER '
-            . $this->wrap($data['column']) . ' SET DEFAULT ' . $this->value($data['value']);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleDropDefaultValue(AlterTable $table, $data): string
-    {
-        return 'ALTER TABLE ' . $this->wrap($table->getTableName()) . ' ALTER ' . $this->wrap($data) . ' DROP DEFAULT';
-    }
-
-    /**
-     * @inheritdoc
-     * @throws \Exception
-     */
-    protected function handleRenameColumn(AlterTable $table, $data): string
-    {
-        $table_name = $table->getTableName();
-        $column_name = $data['from'];
-        /** @var BaseColumn $column */
-        $column = $data['column'];
-        $new_name = $column->getName();
-        $columns = $this->connection->getSchema()->getColumns($table_name, false, false);
-        $column_type = isset($columns[$column_name]) ? $columns[$column_name]['type'] : 'integer';
-
-        return 'ALTER TABLE ' . $this->wrap($table_name) . ' CHANGE ' . $this->wrap($column_name)
-            . ' ' . $this->wrap($new_name) . ' ' . $column_type;
+        return $this->alterTable($table) . ' CHANGE ' . $this->wrap($command->name)
+            . ' ' . $this->wrap($command->column()->getName()) . ' ' . $type;
     }
 }

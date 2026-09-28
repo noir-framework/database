@@ -18,38 +18,20 @@
 
 declare(strict_types=1);namespace Noirapi\Database\Schema;
 
-use Override;
-
-/**
- * A column added, modified or renamed by ALTER TABLE.
- */
-class AlterColumn extends BaseColumn
+enum AlterAction
 {
-    public function __construct(protected AlterTable $table, string $name, ?string $type = null)
-    {
-        parent::__construct($name, $type);
-    }
-
-    public function getTable(): AlterTable
-    {
-        return $this->table;
-    }
-
-    /**
-     * Ignored for modified columns: use AlterTable::setDefaultValue() there.
-     */
-    #[Override]
-    public function defaultValue(mixed $value): static
-    {
-        if ($this->get('handleDefault', true) === true) {
-            return parent::defaultValue($value);
-        }
-
-        return $this;
-    }
-
-    public function autoincrement(): static
-    {
-        return $this->set('autoincrement', true);
-    }
+    case AddColumn;
+    case ModifyColumn;
+    case RenameColumn;
+    case DropColumn;
+    case AddPrimary;
+    case AddUnique;
+    case AddIndex;
+    case AddForeign;
+    case DropPrimaryKey;
+    case DropUniqueKey;
+    case DropIndex;
+    case DropForeignKey;
+    case SetDefaultValue;
+    case DropDefaultValue;
 }

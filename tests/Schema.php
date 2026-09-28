@@ -17,62 +17,55 @@
 
 namespace Noirapi\Database\Test;
 
-use Noirapi\Database\Schema\CreateTable;
-use Noirapi\Database\Schema as BaseSchema;
+use Noirapi\Database\Connection;
 use Noirapi\Database\Schema\AlterTable;
+use Noirapi\Database\Schema\CreateTable;
 
-class Schema extends BaseSchema
+/**
+ * Compiles schema operations to SQL strings instead of executing them.
+ */
+class Schema
 {
-    public function create(string $table, callable $callback)
+    public function __construct(private Connection $connection)
     {
-        $compiler = $this->connection->schemaCompiler();
+    }
 
+    public function create(string $table, callable $callback): string
+    {
         $schema = new CreateTable($table);
-
         $callback($schema);
 
-        return implode("\n", array_map(function ($value) {
-            return $value['sql'];
-        }, $compiler->create($schema)));
+        return $this->join($this->connection->schemaCompiler()->create($schema));
     }
 
-    public function alter(string $table, callable $callback)
+    public function alter(string $table, callable $callback): string
     {
-        $compiler = $this->connection->schemaCompiler();
-
         $schema = new AlterTable($table);
-
         $callback($schema);
 
-        return implode("\n", array_map(function ($value) {
-            return $value['sql'];
-        }, $compiler->alter($schema)));
+        return $this->join($this->connection->schemaCompiler()->alter($schema));
     }
 
-    public function renameTable(string $table, string $name)
+    public function renameTable(string $table, string $name): string
     {
-        $result = $this->connection->schemaCompiler()->renameTable($table, $name);
-
-        return implode("\n", array_map(function ($value) {
-            return $value['sql'];
-        }, $result));
+        return $this->connection->schemaCompiler()->renameTable($table, $name)['sql'];
     }
 
-    public function drop(string $table)
+    public function drop(string $table): string
     {
-        $compiler = $this->connection->schemaCompiler();
-
-        return implode("\n", array_map(function ($value) {
-            return $value['sql'];
-        }, $compiler->drop($table)));
+        return $this->connection->schemaCompiler()->drop($table)['sql'];
     }
 
-    public function truncate(string $table)
+    public function truncate(string $table): string
     {
-        $compiler = $this->connection->schemaCompiler();
+        return $this->connection->schemaCompiler()->truncate($table)['sql'];
+    }
 
-        return implode("\n", array_map(function ($value) {
-            return $value['sql'];
-        }, $compiler->truncate($table)));
+    /**
+     * @param list<array{sql: string, params: list<mixed>}> $commands
+     */
+    private function join(array $commands): string
+    {
+        return implode("\n", array_map(static fn (array $command): string => $command['sql'], $commands));
     }
 }

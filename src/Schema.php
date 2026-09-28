@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,51 +16,52 @@
  * limitations under the License.
  * ============================================================================ */
 
+declare(strict_types=1);
 namespace Noirapi\Database;
 
-use Noirapi\Database\Schema\CreateTable;
 use Noirapi\Database\Schema\AlterTable;
+use Noirapi\Database\Schema\CreateTable;
+use PDOException;
+use RuntimeException;
 
+use function array_keys;
+use function is_array;
+use function is_scalar;
+use function is_string;
+use function strtolower;
+
+/**
+ * Schema inspection and DDL: `$schema->create('users', fn (CreateTable $t) => $t->integer('id'))`.
+ *
+ * @psalm-type ColumnInfo = array{name: string, type: string}
+ */
 class Schema
 {
-    /** @var    \Noirapi\Database\Connection   Connection. */
-    protected $connection;
+    /** @var array<string, string>|null lower-case name => actual name */
+    protected ?array $tableList = null;
 
-    /** @var    array   Table list. */
-    protected $tableList;
+    protected ?string $currentDatabase = null;
 
-    /** @var    string  Currently used database name. */
-    protected $currentDatabase;
+    /** @var array<string, array<string, ColumnInfo>> */
+    protected array $columns = [];
 
-    /** @var    array   Column list */
-    protected $columns = [];
-
-    /**
-     * Constructor
-     *
-     * @param   \Noirapi\Database\Connection $connection Connection.
-     */
-    public function __construct(Connection $connection)
+    public function __construct(protected Connection $connection)
     {
-        $this->connection = $connection;
     }
 
     /**
-     * Get the name of the currently used database
-     *
-     * @return  string
-     * @throws \Exception
+     * @throws PDOException
+     * @throws RuntimeException When the driver has no schema compiler
      */
-    public function getCurrentDatabase()
+    public function getCurrentDatabase(): string
     {
         if ($this->currentDatabase === null) {
-            $compiler = $this->connection->schemaCompiler();
-            $result = $compiler->currentDatabase($this->connection->getDSN());
-
+            $result = $this->connection->schemaCompiler()->currentDatabase((string) $this->connection->getDSN());
             if (isset($result['result'])) {
                 $this->currentDatabase = $result['result'];
             } else {
-                $this->currentDatabase = $this->connection->column($result['sql'], $result['params']);
+                $name = $this->connection->column($result['sql'], $result['params']);
+                $this->currentDatabase = is_scalar($name) ? (string) $name : '';
             }
         }
 
@@ -67,27 +69,17 @@ class Schema
     }
 
     /**
-     * Check if the specified table exists
-     *
-     * @param   string $table Table name
-     * @param   boolean $clear (optional) Refresh table list
-     *
-     * @return  boolean
-     * @throws \Exception
+     * @throws PDOException
      */
     public function hasTable(string $table, bool $clear = false): bool
     {
-        $list = $this->getTables($clear);
-        return isset($list[strtolower($table)]);
+        return isset($this->getTables($clear)[strtolower($table)]);
     }
 
     /**
-     * Get a list with all tables that belong to the currently used database
+     * @return array<string, string> lower-case name => actual name
      *
-     * @param   boolean $clear (optional) Refresh table list
-     *
-     * @return  string[]
-     * @throws \Exception
+     * @throws PDOException
      */
     public function getTables(bool $clear = false): array
     {
@@ -96,21 +88,14 @@ class Schema
         }
 
         if ($this->tableList === null) {
-            $compiler = $this->connection->schemaCompiler();
-
-            $database = $this->getCurrentDatabase();
-
-            $sql = $compiler->getTables($database);
-
-            $results = $this->connection
-                ->query($sql['sql'], $sql['params'])
-                ->fetchNum()
-                ->all();
+            $sql = $this->connection->schemaCompiler()->getTables($this->getCurrentDatabase());
+            $rows = $this->connection->query($sql['sql'], $sql['params'])->fetchNum()->all();
 
             $this->tableList = [];
-
-            foreach ($results as $result) {
-                $this->tableList[strtolower($result[0])] = $result[0];
+            foreach ($rows as $row) {
+                if (is_string($row[0] ?? null)) {
+                    $this->tableList[strtolower($row[0])] = $row[0];
+                }
             }
         }
 
@@ -118,16 +103,11 @@ class Schema
     }
 
     /**
-     * Get a list with all columns that belong to the specified table
+     * @return ($names is true ? list<string> : array<string, ColumnInfo>)|false false when the table does not exist
      *
-     * @param   string $table
-     * @param   boolean $clear (optional) Refresh column list
-     * @param   boolean $names (optional) Return only the column names
-     *
-     * @return false|string[]
-     * @throws \Exception
+     * @throws PDOException
      */
-    public function getColumns(string $table, bool $clear = false, bool $names = true)
+    public function getColumns(string $table, bool $clear = false, bool $names = true): array|false
     {
         if ($clear) {
             unset($this->columns[$table]);
@@ -138,24 +118,16 @@ class Schema
         }
 
         if (!isset($this->columns[$table])) {
-            $compiler = $this->connection->schemaCompiler();
-
-            $database = $this->getCurrentDatabase();
-
-            $sql = $compiler->getColumns($database, $table);
-
-            $results = $this->connection
-                ->query($sql['sql'], $sql['params'])
-                ->fetchAssoc()
-                ->all();
+            $sql = $this->connection->schemaCompiler()->getColumns($this->getCurrentDatabase(), $table);
+            $rows = $this->connection->query($sql['sql'], $sql['params'])->fetchAssoc()->all();
 
             $columns = [];
-
-            foreach ($results as $ord => &$col) {
-                $columns[$col['name']] = [
-                    'name' => $col['name'],
-                    'type' => $col['type'],
-                ];
+            foreach ($rows as $row) {
+                $name = $row['name'] ?? null;
+                $type = $row['type'] ?? null;
+                if (is_string($name) && is_string($type)) {
+                    $columns[$name] = ['name' => $name, 'type' => $type];
+                }
             }
 
             $this->columns[$table] = $columns;
@@ -165,96 +137,69 @@ class Schema
     }
 
     /**
-     * Creates a new table
+     * @param callable(CreateTable): mixed $callback
      *
-     * @param   string $table Table name
-     * @param   callable $callback A callback that will define table's fields and indexes
-     * @throws \Exception
+     * @throws PDOException
      */
-    public function create(string $table, callable $callback)
+    public function create(string $table, callable $callback): void
     {
-        $compiler = $this->connection->schemaCompiler();
-
         $schema = new CreateTable($table);
-
         $callback($schema);
 
-        foreach ($compiler->create($schema) as $result) {
+        foreach ($this->connection->schemaCompiler()->create($schema) as $result) {
             $this->connection->command($result['sql'], $result['params']);
         }
 
-        //clear table list
         $this->tableList = null;
     }
 
     /**
-     * Alters a table's definition
+     * @param callable(AlterTable): mixed $callback
      *
-     * @param   string $table Table name
-     * @param   callable $callback A callback that will add or remove fields or indexes
-     * @throws \Exception
+     * @throws PDOException
      */
-    public function alter(string $table, callable $callback)
+    public function alter(string $table, callable $callback): void
     {
-        $compiler = $this->connection->schemaCompiler();
-
         $schema = new AlterTable($table);
-
         $callback($schema);
 
         unset($this->columns[strtolower($table)]);
 
-        foreach ($compiler->alter($schema) as $result) {
+        foreach ($this->connection->schemaCompiler()->alter($schema) as $result) {
             $this->connection->command($result['sql'], $result['params']);
         }
     }
 
     /**
-     * Change a table's name
-     *
-     * @param   string $table The table
-     * @param   string $name The new name of the table
-     * @throws \Exception
+     * @throws PDOException
      */
-    public function renameTable(string $table, string $name)
+    public function renameTable(string $table, string $name): void
     {
         $result = $this->connection->schemaCompiler()->renameTable($table, $name);
         $this->connection->command($result['sql'], $result['params']);
+
         $this->tableList = null;
         unset($this->columns[strtolower($table)]);
     }
 
     /**
-     * Deletes a table
-     *
-     * @param   string $table Table name
-     * @throws \Exception
+     * @throws PDOException
      */
-    public function drop(string $table)
+    public function drop(string $table): void
     {
-        $compiler = $this->connection->schemaCompiler();
-
-        $result = $compiler->drop($table);
-
+        $result = $this->connection->schemaCompiler()->drop($table);
         $this->connection->command($result['sql'], $result['params']);
 
-        //clear table list
         $this->tableList = null;
         unset($this->columns[strtolower($table)]);
     }
 
     /**
-     * Deletes all records from a table
-     *
-     * @param   string $table Table name
-     * @throws \Exception
+     * @throws PDOException
      */
-    public function truncate(string $table)
+    public function truncate(string $table): void
     {
-        $compiler = $this->connection->schemaCompiler();
-
-        $result = $compiler->truncate($table);
-
+        $result = $this->connection->schemaCompiler()->truncate($table);
         $this->connection->command($result['sql'], $result['params']);
     }
 }

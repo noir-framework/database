@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,148 +16,36 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\Schema\Compiler;
+declare(strict_types=1);namespace Noirapi\Database\Schema\Compiler;
 
-use Noirapi\Database\Schema\{
-    Compiler, BaseColumn, AlterTable, CreateTable
-};
+use Noirapi\Database\Schema\AlterCommand;
+use Noirapi\Database\Schema\AlterTable;
+use Noirapi\Database\Schema\BaseColumn;
+use Noirapi\Database\Schema\Compiler;
+use Noirapi\Database\Schema\CreateTable;
+use Override;
 
 class SQLServer extends Compiler
 {
-    /** @var string */
-    protected $wrapper = '[%s]';
+    protected string $wrapper = '[%s]';
 
-    /** @var string[] */
-    protected $modifiers = ['nullable', 'default', 'autoincrement'];
+    protected array $modifiers = ['nullable', 'default', 'autoincrement'];
 
-    /** @var string */
-    protected $autoincrement = 'IDENTITY';
+    protected string $autoincrement = 'IDENTITY';
 
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeInteger(BaseColumn $column): string
-    {
-        switch ($column->get('size', 'normal')) {
-            case 'tiny':
-                return 'TINYINT';
-            case 'small':
-                return 'SMALLINT';
-            case 'medium':
-                return 'INTEGER';
-            case 'big':
-                return 'BIGINT';
-        }
-
-        return 'INTEGER';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeDecimal(BaseColumn $column): string
-    {
-        if (null !== $l = $column->get('length')) {
-            if (null === $p = $column->get('precision')) {
-                return 'DECIMAL (' . $this->value($l) . ')';
-            }
-            return 'DECIMAL (' . $this->value($l) . ', ' . $this->value($p) . ')';
-        }
-        return 'DECIMAL';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeBoolean(BaseColumn $column): string
-    {
-        return 'BIT';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeString(BaseColumn $column): string
-    {
-        return 'NVARCHAR(' . $this->value($column->get('length', 255)) . ')';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeFixed(BaseColumn $column): string
-    {
-        return 'NCHAR(' . $this->value($column->get('length', 255)) . ')';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeText(BaseColumn $column): string
-    {
-        return 'NVARCHAR(max)';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeBinary(BaseColumn $column): string
-    {
-        return 'VARBINARY(max)';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleTypeTimestamp(BaseColumn $column): string
-    {
-        return 'DATETIME';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleRenameColumn(AlterTable $table, $data): string
-    {
-        /** @var BaseColumn $column */
-        $column = $data['column'];
-        return 'sp_rename ' . $this->wrap($table->getTableName()) . '.' . $this->wrap($data['from']) . ', '
-            . $this->wrap($column->getName()) . ', COLUMN';
-    }
-
-    /**
-     * @inheritdoc
-     */
-    protected function handleEngine(CreateTable $schema): string
-    {
-        return '';
-    }
-
-    /**
-     * @inheritdoc
-     */
+    #[Override]
     public function renameTable(string $current, string $new): array
     {
-        return [
-            'sql' => 'sp_rename ' . $this->wrap($current) . ', ' . $this->wrap($new),
-            'params' => [],
-        ];
+        return ['sql' => 'sp_rename ' . $this->wrap($current) . ', ' . $this->wrap($new), 'params' => []];
     }
 
-    /**
-     * @inheritdoc
-     */
+    #[Override]
     public function currentDatabase(string $dsn): array
     {
-        return [
-            'sql' => 'SELECT SCHEMA_NAME()',
-            'params' => [],
-        ];
+        return ['sql' => 'SELECT SCHEMA_NAME()', 'params' => []];
     }
 
-    /**
-     * @inheritdoc
-     */
+    #[Override]
     public function getColumns(string $database, string $table): array
     {
         $sql = 'SELECT ' . $this->wrap('column_name') . ' AS ' . $this->wrap('name')
@@ -165,9 +54,72 @@ class SQLServer extends Compiler
             . ' WHERE ' . $this->wrap('table_schema') . ' = ? AND ' . $this->wrap('table_name') . ' = ? '
             . ' ORDER BY ' . $this->wrap('ordinal_position') . ' ASC';
 
-        return [
-            'sql' => $sql,
-            'params' => [$database, $table],
-        ];
+        return ['sql' => $sql, 'params' => [$database, $table]];
+    }
+
+    #[Override]
+    protected function handleTypeInteger(BaseColumn $column): string
+    {
+        return match ($column->getSize()) {
+            'tiny' => 'TINYINT',
+            'small' => 'SMALLINT',
+            'medium', 'normal' => 'INTEGER',
+            'big' => 'BIGINT',
+        };
+    }
+
+    #[Override]
+    protected function handleTypeDecimal(BaseColumn $column): string
+    {
+        return $this->decimal($column, ' ');
+    }
+
+    #[Override]
+    protected function handleTypeBoolean(BaseColumn $column): string
+    {
+        return 'BIT';
+    }
+
+    #[Override]
+    protected function handleTypeString(BaseColumn $column): string
+    {
+        return 'NVARCHAR(' . $this->value($column->getLength() ?? 255) . ')';
+    }
+
+    #[Override]
+    protected function handleTypeFixed(BaseColumn $column): string
+    {
+        return 'NCHAR(' . $this->value($column->getLength() ?? 255) . ')';
+    }
+
+    #[Override]
+    protected function handleTypeText(BaseColumn $column): string
+    {
+        return 'NVARCHAR(max)';
+    }
+
+    #[Override]
+    protected function handleTypeBinary(BaseColumn $column): string
+    {
+        return 'VARBINARY(max)';
+    }
+
+    #[Override]
+    protected function handleTypeTimestamp(BaseColumn $column): string
+    {
+        return 'DATETIME';
+    }
+
+    #[Override]
+    protected function handleRenameColumn(AlterTable $table, AlterCommand $command): string
+    {
+        return 'sp_rename ' . $this->wrap($table->getTableName()) . '.' . $this->wrap($command->name) . ', '
+            . $this->wrap($command->column()->getName()) . ', COLUMN';
+    }
+
+    #[Override]
+    protected function handleEngine(CreateTable $schema): string
+    {
+        return '';
     }
 }

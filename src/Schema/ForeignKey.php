@@ -1,6 +1,7 @@
 <?php
 /* ===========================================================================
  * Copyright 2018 Zindex Software
+ * Copyright 2026 noir-framework
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,58 +16,39 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Noirapi\Database\Schema;
+declare(strict_types=1);namespace Noirapi\Database\Schema;
 
+use function array_values;
+use function in_array;
+use function strtoupper;
+
+/**
+ * FOREIGN KEY (columns) REFERENCES table (columns) [ON DELETE ...] [ON UPDATE ...]
+ */
 class ForeignKey
 {
-    /** @var string */
-    protected $refTable;
+    protected string $refTable = '';
 
-    /** @var string[] */
-    protected $refColumns;
+    /** @var list<string> */
+    protected array $refColumns = [];
 
-    /** @var array */
-    protected $actions = [];
-
-    /** @var string[] */
-    protected $columns;
+    /** @var array<'ON DELETE'|'ON UPDATE', string> */
+    protected array $actions = [];
 
     /**
-     * ForeignKey constructor.
-     * @param string[] $columns
+     * @param list<string> $columns
      */
-    public function __construct(array $columns)
+    public function __construct(protected array $columns)
     {
-        $this->columns = $columns;
     }
 
-    /**
-     * @param string $on
-     * @param string $action
-     * @return $this
-     */
-    protected function addAction(string $on, string $action): self
-    {
-        $action = strtoupper($action);
-
-        if (!in_array($action, ['RESTRICT', 'CASCADE', 'NO ACTION', 'SET NULL'])) {
-            return $this;
-        }
-
-        $this->actions[$on] = $action;
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
     public function getReferencedTable(): string
     {
         return $this->refTable;
     }
 
     /**
-     * @return string[]
+     * @return list<string>
      */
     public function getReferencedColumns(): array
     {
@@ -74,7 +56,7 @@ class ForeignKey
     }
 
     /**
-     * @return string[]
+     * @return list<string>
      */
     public function getColumns(): array
     {
@@ -82,40 +64,49 @@ class ForeignKey
     }
 
     /**
-     * @return array
+     * @return array<'ON DELETE'|'ON UPDATE', string>
      */
     public function getActions(): array
     {
         return $this->actions;
     }
 
-    /**
-     * @param string $table
-     * @param string[] $columns
-     * @return $this
-     */
-    public function references(string $table, string ...$columns): self
+    public function references(string $table, string ...$columns): static
     {
         $this->refTable = $table;
-        $this->refColumns = $columns;
+        $this->refColumns = array_values($columns);
+
         return $this;
     }
 
     /**
-     * @param string $action
-     * @return $this
+     * @param string $action RESTRICT, CASCADE, NO ACTION or SET NULL; anything else is ignored
      */
-    public function onDelete(string $action): self
+    public function onDelete(string $action): static
     {
         return $this->addAction('ON DELETE', $action);
     }
 
     /**
-     * @param string $action
-     * @return $this
+     * @param string $action RESTRICT, CASCADE, NO ACTION or SET NULL; anything else is ignored
      */
-    public function onUpdate(string $action): self
+    public function onUpdate(string $action): static
     {
         return $this->addAction('ON UPDATE', $action);
+    }
+
+    /**
+     * @param 'ON DELETE'|'ON UPDATE' $on
+     */
+    protected function addAction(string $on, string $action): static
+    {
+        $action = strtoupper($action);
+        if (!in_array($action, ['RESTRICT', 'CASCADE', 'NO ACTION', 'SET NULL'], true)) {
+            return $this;
+        }
+
+        $this->actions[$on] = $action;
+
+        return $this;
     }
 }
