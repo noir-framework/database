@@ -57,7 +57,7 @@
         "psalm": "psalm --no-cache",
         "cs": "phpcs",
         "cs-fix": "phpcbf",
-        "phpmd": "phpmd src text phpmd.xml",
+        "phpmd": "phpmd analyze src --format text --ruleset phpmd.xml --no-progress",
         "check": [
             "@cs",
             "@phpstan",

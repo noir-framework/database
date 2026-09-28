@@ -150,12 +150,3 @@ final class SqliteTest extends TestCase
         $this->assertSame(['id', 'name', 'age', 'email'], $this->db->schema()->getColumns('users', true));
     }
 }
-
-final class UserRow
-{
-    public int $id;
-
-    public string $name;
-
-    public int $age;
-}

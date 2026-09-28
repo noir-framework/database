@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  *
@@ -21,14 +24,14 @@ use Noirapi\Database\SQL\Expression;
 
 class DeleteTest extends BaseClass
 {
-    public function testDeleteAll()
+    public function testDeleteAll(): void
     {
         $expected = 'DELETE FROM "users"';
         $actual = $this->sql(fn () => $this->db->from("users")->delete());
         $this->assertEquals($expected, $actual);
     }
 
-    public function testDeleteWhereCondition()
+    public function testDeleteWhereCondition(): void
     {
         $expected = 'DELETE FROM "users" WHERE "age" < 18';
         $actual = $this->sql(fn () => $this->db->from("users")
@@ -37,11 +40,11 @@ class DeleteTest extends BaseClass
         $this->assertEquals($expected, $actual);
     }
 
-    public function testDeleteWhereExpression()
+    public function testDeleteWhereExpression(): void
     {
         $expected = 'DELETE FROM "users" WHERE LEN("name") < 18';
         $actual = $this->sql(fn () => $this->db->from("users")
-            ->where(function (Expression $expr) {
+            ->where(function (Expression $expr): void {
                 $expr->len("name");
             }, true)
             ->lt(18)

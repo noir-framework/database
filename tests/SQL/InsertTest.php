@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  *
@@ -21,32 +24,32 @@ use Noirapi\Database\SQL\Expression;
 
 class InsertTest extends BaseClass
 {
-    public function testInsertSingleValue()
+    public function testInsertSingleValue(): void
     {
         $expected = 'INSERT INTO "users" ("age") VALUES (18)';
         $actual = $this->sql(fn () => $this->db->insert(['age' => 18])->into('users'));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testInsertMultipleValues()
+    public function testInsertMultipleValues(): void
     {
         $expected = 'INSERT INTO "users" ("name", "age") VALUES (\'foo\', 18)';
         $actual = $this->sql(fn () => $this->db->insert(['name' => 'foo', 'age' => 18])->into('users'));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testInsertBooleanValues()
+    public function testInsertBooleanValues(): void
     {
         $expected = 'INSERT INTO "test" ("foo", "bar") VALUES (TRUE, FALSE)';
         $actual = $this->sql(fn () => $this->db->insert(['foo' => true, 'bar' => false])->into('test'));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testInsertExpressions()
+    public function testInsertExpressions(): void
     {
         $expected = 'INSERT INTO "users" ("name") VALUES (LCASE( \'foo\' ))';
         $actual = $this->sql(fn () => $this->db->insert([
-            'name' => function (Expression $expr) {
+            'name' => function (Expression $expr): void {
                 $expr->{'LCASE('}->value('foo')->{')'};
             },
         ])->into('users'));

@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -65,6 +66,10 @@ use function str_replace;
 
 /**
  * Generic ANSI-ish SQL compiler; dialects override the parts that differ.
+ *
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity") One small method per construct, overridable per dialect.
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Knows every clause value object it compiles.
+ * @SuppressWarnings("PHPMD.UnusedFormalParameter") Hooks: dialects use parameters the base ignores.
  */
 class Compiler
 {
@@ -329,8 +334,9 @@ class Compiler
 
         $sql = [];
         foreach ($joins as $join) {
-            $on = $join->join === null ? '' : $this->handleJoinConditions($join->join->getJoinConditions());
-            $sql[] = $join->type . ' JOIN ' . $this->handleTables($join->tables) . ($on === '' ? '' : ' ON ' . $on);
+            $conditions = $join->join === null ? '' : $this->handleJoinConditions($join->join->getJoinConditions());
+            $sql[] = $join->type . ' JOIN ' . $this->handleTables($join->tables)
+                . ($conditions === '' ? '' : ' ON ' . $conditions);
         }
 
         return ' ' . implode(' ', $sql);
@@ -494,7 +500,8 @@ class Compiler
 
     protected function whereExists(WhereExists $where): string
     {
-        return ($where->not ? 'NOT EXISTS ' : 'EXISTS ') . '(' . $this->select($where->subquery->getSQLStatement()) . ')';
+        return ($where->not ? 'NOT EXISTS ' : 'EXISTS ')
+            . '(' . $this->select($where->subquery->getSQLStatement()) . ')';
     }
 
     protected function whereNull(WhereNull $where): string
@@ -510,7 +517,8 @@ class Compiler
 
     protected function whereLike(WhereLike $where): string
     {
-        return $this->wrap($where->column) . ' ' . ($where->not ? 'NOT LIKE' : 'LIKE') . ' ' . $this->param($where->pattern);
+        return $this->wrap($where->column) . ' ' . ($where->not ? 'NOT LIKE' : 'LIKE') . ' '
+            . $this->param($where->pattern);
     }
 
     protected function whereNop(WhereNop $where): string

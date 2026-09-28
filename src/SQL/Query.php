@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -56,7 +57,6 @@ class Query extends BaseStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      * @param (Closure(HavingExpression): mixed)|null $value
      */
     public function having(string|Expression|Closure $column, ?Closure $value = null): Select
@@ -65,7 +65,6 @@ class Query extends BaseStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      * @param (Closure(HavingExpression): mixed)|null $value
      */
     public function andHaving(string|Expression|Closure $column, ?Closure $value = null): Select
@@ -74,7 +73,6 @@ class Query extends BaseStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      * @param (Closure(HavingExpression): mixed)|null $value
      */
     public function orHaving(string|Expression|Closure $column, ?Closure $value = null): Select
@@ -85,8 +83,11 @@ class Query extends BaseStatement
     /**
      * @param ColumnArg|list<ColumnArg> $columns
      */
-    public function orderBy(string|Expression|Closure|array $columns, string $order = 'ASC', ?string $nulls = null): Select
-    {
+    public function orderBy(
+        string|Expression|Closure|array $columns,
+        string $order = 'ASC',
+        ?string $nulls = null,
+    ): Select {
         return $this->buildSelect()->orderBy($columns, $order, $nulls);
     }
 

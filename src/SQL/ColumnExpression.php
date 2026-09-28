@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -63,11 +64,8 @@ class ColumnExpression
                 continue;
             }
 
-            if (is_string($alias)) {
-                $this->column($name, $alias);
-            } else {
-                $this->column($alias, $name);
-            }
+            // ['column' => 'alias'] or ['alias' => expression]
+            is_string($alias) ? $this->column($name, $alias) : $this->column($alias, $name);
         }
 
         return $this;
@@ -76,8 +74,11 @@ class ColumnExpression
     /**
      * @param ColumnArg|list<ColumnArg> $column
      */
-    public function count(string|Expression|Closure|array $column = '*', ?string $alias = null, bool $distinct = false): static
-    {
+    public function count(
+        string|Expression|Closure|array $column = '*',
+        ?string $alias = null,
+        bool $distinct = false,
+    ): static {
         return $this->column((new Expression())->count($column, $distinct), $alias);
     }
 
@@ -140,8 +141,12 @@ class ColumnExpression
     /**
      * @param ColumnArg $column
      */
-    public function mid(string|Expression|Closure $column, int $start = 1, ?string $alias = null, int $length = 0): static
-    {
+    public function mid(
+        string|Expression|Closure $column,
+        int $start = 1,
+        ?string $alias = null,
+        int $length = 0,
+    ): static {
         return $this->column((new Expression())->mid($column, $start, $length), $alias);
     }
 

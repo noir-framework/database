@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -40,6 +41,10 @@ use function trim;
  * Generic DDL compiler; dialects override type names, modifiers and ALTER forms.
  *
  * @psalm-type Command = array{sql: string, params: list<mixed>}
+ *
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity") One small method per construct, overridable per dialect.
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Knows every clause value object it compiles.
+ * @SuppressWarnings("PHPMD.UnusedFormalParameter") Hooks: dialects use parameters the base ignores.
  */
 class Compiler
 {
@@ -377,12 +382,13 @@ class Compiler
 
     protected function handlePrimaryKey(CreateTable $schema): string
     {
-        $pk = $schema->getPrimaryKey();
-        if ($pk === null) {
+        $primaryKey = $schema->getPrimaryKey();
+        if ($primaryKey === null) {
             return '';
         }
 
-        return ",\n" . 'CONSTRAINT ' . $this->wrap($pk['name']) . ' PRIMARY KEY (' . $this->wrapArray($pk['columns']) . ')';
+        return ",\n" . 'CONSTRAINT ' . $this->wrap($primaryKey['name'])
+            . ' PRIMARY KEY (' . $this->wrapArray($primaryKey['columns']) . ')';
     }
 
     protected function handleUniqueKeys(CreateTable $schema): string

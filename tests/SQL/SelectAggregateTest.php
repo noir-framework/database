@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  *
@@ -21,62 +24,61 @@ use Noirapi\Database\SQL\Expression;
 
 class SelectAggregateTest extends BaseClass
 {
-    public function testCountNoColumns()
+    public function testCountNoColumns(): void
     {
         $expected = 'SELECT COUNT(*) FROM "users"';
         $actual = $this->sql(fn () => $this->db->from('users')->count());
         $this->assertEquals($expected, $actual);
     }
 
-    public function testCountOneColumn()
+    public function testCountOneColumn(): void
     {
         $expected = 'SELECT COUNT("description") FROM "users"';
         $actual = $this->sql(fn () => $this->db->from('users')->count('description'));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testCountOneColumnDistinct()
+    public function testCountOneColumnDistinct(): void
     {
         $expected = 'SELECT COUNT(DISTINCT "description") FROM "users"';
         $actual = $this->sql(fn () => $this->db->from('users')->count('description', true));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testLargestValue()
+    public function testLargestValue(): void
     {
         $expected = 'SELECT MAX("age") FROM "users"';
         $actual = $this->sql(fn () => $this->db->from('users')->max('age'));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testSmallestValue()
+    public function testSmallestValue(): void
     {
         $expected = 'SELECT MIN("age") FROM "users"';
         $actual = $this->sql(fn () => $this->db->from('users')->min('age'));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testAverageValue()
+    public function testAverageValue(): void
     {
         $expected = 'SELECT AVG("age") FROM "users"';
         $actual = $this->sql(fn () => $this->db->from('users')->avg('age'));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testTotalSum()
+    public function testTotalSum(): void
     {
         $expected = 'SELECT SUM("age") FROM "users"';
         $actual = $this->sql(fn () => $this->db->from('users')->sum('age'));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testExpressionAggregate()
+    public function testExpressionAggregate(): void
     {
         $expected = 'SELECT SUM("friends" - "enemies") FROM "users"';
-        $actual = $this->sql(fn () => $this->db->from('users')->sum(function (Expression $expr) {
+        $actual = $this->sql(fn () => $this->db->from('users')->sum(function (Expression $expr): void {
             $expr->column('friends')->{'-'}->column("enemies");
         }));
         $this->assertEquals($expected, $actual);
     }
-
 }

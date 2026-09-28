@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -48,7 +49,6 @@ class WhereStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      *
      * @return ($isExpr is true ? Where<$this> : ($column is Closure ? $this : Where<$this>))
      */
@@ -58,7 +58,6 @@ class WhereStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      *
      * @return ($isExpr is true ? Where<$this> : ($column is Closure ? $this : Where<$this>))
      */
@@ -68,7 +67,6 @@ class WhereStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      *
      * @return ($isExpr is true ? Where<$this> : ($column is Closure ? $this : Where<$this>))
      */
@@ -126,7 +124,6 @@ class WhereStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      *
      * @return Where<$this>|$this
      */

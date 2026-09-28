@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -26,6 +27,9 @@ use function is_string;
 
 /**
  * The comparison half of a HAVING condition on an aggregate.
+ *
+ * @SuppressWarnings("PHPMD.CamelCaseParameterName") $is_column is public opis/database API (named arguments).
+ * @SuppressWarnings("PHPMD.CamelCaseVariableName") $is_column is public opis/database API (named arguments).
  */
 class Having
 {
@@ -48,13 +52,16 @@ class Having
 
     public function init(string|Expression|Closure $aggregate, string $separator): static
     {
+        $this->separator = $separator;
+
         if ($aggregate instanceof Closure) {
             /** @var Closure(Expression): mixed $aggregate */
             $this->aggregate = Expression::fromClosure($aggregate);
-        } else {
-            $this->aggregate = $aggregate;
+
+            return $this;
         }
-        $this->separator = $separator;
+
+        $this->aggregate = $aggregate;
 
         return $this;
     }

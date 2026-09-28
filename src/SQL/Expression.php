@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -43,6 +44,8 @@ use function is_array;
  * `$expr->column('a')->{'+'}->value(1)` produces `"a" + ?`.
  *
  * @psalm-type ColumnArg = string|Expression|(Closure(Expression): mixed)
+ *
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Creates every expression token type.
  */
 class Expression
 {

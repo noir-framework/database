@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  *
@@ -21,81 +24,81 @@ use Noirapi\Database\SQL\Expression;
 
 class UpdateTest extends BaseClass
 {
-    public function testUpdate()
+    public function testUpdate(): void
     {
         $expected = 'UPDATE "users" SET "age" = 18';
         $actual = $this->sql(fn () => $this->db->update('users')->set(['age' => 18]));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testUpdateMultiple()
+    public function testUpdateMultiple(): void
     {
         $expected = 'UPDATE "users" SET "age" = 18, "name" = \'foo\'';
         $actual = $this->sql(fn () => $this->db->update('users')->set(['age' => 18, 'name' => 'foo']));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testUpdateColAsCol()
+    public function testUpdateColAsCol(): void
     {
         $expected = 'UPDATE "users" SET "name" = "username"';
         $actual = $this->sql(fn () => $this->db->update('users')->set([
-            'name' => function (Expression $expr) {
+            'name' => function (Expression $expr): void {
                 $expr->column("username");
             },
         ]));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testUpdateIncrementByOne()
+    public function testUpdateIncrementByOne(): void
     {
         $expected = 'UPDATE "users" SET "age" = "age" + 1';
         $actual = $this->sql(fn () => $this->db->update('users')->increment("age"));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testUpdateIncrementMultipleByOne()
+    public function testUpdateIncrementMultipleByOne(): void
     {
         $expected = 'UPDATE "users" SET "age" = "age" + 1, "foo" = "foo" + 1';
         $actual = $this->sql(fn () => $this->db->update('users')->increment(["age", "foo"]));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testUpdateIncrementByN()
+    public function testUpdateIncrementByN(): void
     {
         $expected = 'UPDATE "users" SET "age" = "age" + 5';
         $actual = $this->sql(fn () => $this->db->update('users')->increment("age", 5));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testUpdateIncrementMultipleByN()
+    public function testUpdateIncrementMultipleByN(): void
     {
         $expected = 'UPDATE "users" SET "age" = "age" + 5, "foo" = "foo" + 5';
         $actual = $this->sql(fn () => $this->db->update('users')->increment(["age", "foo"], 5));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testUpdateDecrementByOne()
+    public function testUpdateDecrementByOne(): void
     {
         $expected = 'UPDATE "users" SET "age" = "age" - 1';
         $actual = $this->sql(fn () => $this->db->update('users')->decrement("age"));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testUpdateDecrementMultipleByOne()
+    public function testUpdateDecrementMultipleByOne(): void
     {
         $expected = 'UPDATE "users" SET "age" = "age" - 1, "foo" = "foo" - 1';
         $actual = $this->sql(fn () => $this->db->update('users')->decrement(["age", "foo"]));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testUpdateDecrementByN()
+    public function testUpdateDecrementByN(): void
     {
         $expected = 'UPDATE "users" SET "age" = "age" - 5';
         $actual = $this->sql(fn () => $this->db->update('users')->decrement("age", 5));
         $this->assertEquals($expected, $actual);
     }
 
-    public function testUpdateDecrementMultipleByN()
+    public function testUpdateDecrementMultipleByN(): void
     {
         $expected = 'UPDATE "users" SET "age" = "age" - 5, "foo" = "foo" - 5';
         $actual = $this->sql(fn () => $this->db->update('users')->decrement(["age", "foo"], 5));

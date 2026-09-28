@@ -7,13 +7,10 @@ declare(strict_types=1);
 namespace Noirapi\Database\Test\Types;
 
 use Noirapi\Database\Database;
-use Noirapi\Database\ResultSet;
 use Noirapi\Database\SQL\Query;
 use Noirapi\Database\SQL\Select;
 use Noirapi\Database\SQL\Update;
-use Noirapi\Database\SQL\Where;
 use Noirapi\Database\SQL\WhereStatement;
-use stdClass;
 
 use function PHPStan\Testing\assertType;
 

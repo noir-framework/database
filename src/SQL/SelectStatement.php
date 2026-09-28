@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -79,7 +80,6 @@ class SelectStatement extends BaseStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      * @param (Closure(HavingExpression): mixed)|null $value
      */
     public function having(string|Expression|Closure $column, ?Closure $value = null): static
@@ -90,7 +90,6 @@ class SelectStatement extends BaseStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      * @param (Closure(HavingExpression): mixed)|null $value
      */
     public function andHaving(string|Expression|Closure $column, ?Closure $value = null): static
@@ -101,7 +100,6 @@ class SelectStatement extends BaseStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      * @param (Closure(HavingExpression): mixed)|null $value
      */
     public function orHaving(string|Expression|Closure $column, ?Closure $value = null): static
@@ -114,8 +112,11 @@ class SelectStatement extends BaseStatement
     /**
      * @param ColumnArg|list<ColumnArg> $columns
      */
-    public function orderBy(string|Expression|Closure|array $columns, string $order = 'ASC', ?string $nulls = null): static
-    {
+    public function orderBy(
+        string|Expression|Closure|array $columns,
+        string $order = 'ASC',
+        ?string $nulls = null,
+    ): static {
         $this->sql->addOrder(is_array($columns) ? $columns : [$columns], $order, $nulls);
 
         return $this;
@@ -144,9 +145,11 @@ class SelectStatement extends BaseStatement
         if ($columns instanceof Closure) {
             /** @var Closure(ColumnExpression): mixed $columns */
             $columns($expr);
-        } else {
-            $expr->columns(is_array($columns) ? $columns : [$columns]);
+
+            return null;
         }
+
+        $expr->columns(is_array($columns) ? $columns : [$columns]);
 
         return null;
     }

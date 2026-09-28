@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -22,6 +23,8 @@ namespace Noirapi\Database\SQL\Clause;
 
 /**
  * A WHERE, HAVING or JOIN ON condition, joined to the previous one by its separator (AND / OR).
+ *
+ * @SuppressWarnings("PHPMD.NumberOfChildren") One subclass per WHERE / HAVING / JOIN condition kind.
  */
 abstract readonly class Condition
 {

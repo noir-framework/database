@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  *
@@ -29,6 +32,9 @@ class Connection extends \Noirapi\Database\Connection
         parent::__construct('', driver: $driver);
     }
 
+    /**
+     * @param list<mixed> $params
+     */
     public function query(string $sql, array $params = []): ResultSet
     {
         $this->record($sql, $params);
@@ -36,6 +42,9 @@ class Connection extends \Noirapi\Database\Connection
         return new ResultSet((new PDO('sqlite::memory:'))->query('SELECT 1'));
     }
 
+    /**
+     * @param list<mixed> $params
+     */
     public function column(string $sql, array $params = []): mixed
     {
         $this->record($sql, $params);
@@ -43,6 +52,9 @@ class Connection extends \Noirapi\Database\Connection
         return null;
     }
 
+    /**
+     * @param list<mixed> $params
+     */
     public function count(string $sql, array $params = []): int
     {
         $this->record($sql, $params);
@@ -50,6 +62,9 @@ class Connection extends \Noirapi\Database\Connection
         return 0;
     }
 
+    /**
+     * @param list<mixed> $params
+     */
     public function command(string $sql, array $params = []): bool
     {
         $this->record($sql, $params);
@@ -62,6 +77,9 @@ class Connection extends \Noirapi\Database\Connection
         return $this->lastSql;
     }
 
+    /**
+     * @param list<mixed> $params
+     */
     private function record(string $sql, array $params): void
     {
         $this->lastSql = $this->replaceParams($sql, $params);

@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -49,7 +50,6 @@ class Join
      * `on('a.id', 'b.id')` compares two columns; `on(fn (Join $j) => ...)` nests conditions;
      * `on($expression, true)` adds a raw expression.
      *
-     * @param string|Expression|Closure $column1
      * @param string|Expression|(Closure(Expression): mixed)|true|null $column2
      */
     public function on(
@@ -61,7 +61,6 @@ class Join
     }
 
     /**
-     * @param string|Expression|Closure $column1
      * @param string|Expression|(Closure(Expression): mixed)|true|null $column2
      */
     public function andOn(
@@ -73,7 +72,6 @@ class Join
     }
 
     /**
-     * @param string|Expression|Closure $column1
      * @param string|Expression|(Closure(Expression): mixed)|true|null $column2
      */
     public function orOn(
@@ -99,7 +97,6 @@ class Join
     }
 
     /**
-     * @param string|Expression|Closure $column1
      * @param string|Expression|(Closure(Expression): mixed)|bool|null $column2
      */
     protected function addJoinCondition(

@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -20,8 +21,8 @@ declare(strict_types=1);
 
 namespace Noirapi\Database\SQL;
 
-use Noirapi\Database\Connection;
 use InvalidArgumentException;
+use Noirapi\Database\Connection;
 use Override;
 
 use function is_array;

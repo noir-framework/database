@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  *
@@ -19,14 +22,14 @@ namespace Noirapi\Database\Test\SQL;
 
 class LimitTest extends BaseClass
 {
-    public function testLimit()
+    public function testLimit(): void
     {
         $expected = 'SELECT * FROM "users" ORDER BY "name" ASC LIMIT 25';
         $actual = $this->sql(fn () => $this->db->from('users')->orderBy('name')->limit(25)->select());
         $this->assertEquals($expected, $actual);
     }
 
-    public function testOffset()
+    public function testOffset(): void
     {
         $expected = 'SELECT * FROM "users" ORDER BY "name" ASC LIMIT 25 OFFSET 10';
         $actual = $this->sql(fn () => $this->db->from('users')->orderBy('name')->limit(25)->offset(10)->select());

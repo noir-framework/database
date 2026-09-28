@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  *
@@ -23,10 +26,9 @@ use PHPUnit\Framework\TestCase;
 
 class BaseClass extends TestCase
 {
-    protected static $database;
+    protected static Database $database;
 
-    /** @var  Database */
-    protected $db;
+    protected Database $db;
 
     public static function setUpBeforeClass(): void
     {

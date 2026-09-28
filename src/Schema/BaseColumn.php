@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -172,7 +173,9 @@ class BaseColumn
 
     private function bool(string $name, bool $default): bool
     {
-        return isset($this->properties[$name]) && is_bool($this->properties[$name]) ? $this->properties[$name] : $default;
+        return isset($this->properties[$name]) && is_bool($this->properties[$name])
+            ? $this->properties[$name]
+            : $default;
     }
 
     private function int(string $name): ?int

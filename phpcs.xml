@@ -13,6 +13,11 @@
 
     <rule ref="PSR12" />
 
+    <!-- Expected SQL strings in tests are compared verbatim and may be long. -->
+    <rule ref="Generic.Files.LineLength">
+        <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
+
     <!-- Types -->
     <rule ref="SlevomatCodingStandard.TypeHints.DeclareStrictTypes">
         <properties>

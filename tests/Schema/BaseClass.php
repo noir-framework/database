@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  *
@@ -26,22 +29,20 @@ use Symfony\Component\Yaml\Yaml;
 
 class BaseClass extends TestCase
 {
-    protected static $data = [];
+    /** @var array<string, mixed> */
+    protected static array $data = [];
 
-    /** @var Schema */
-    protected static $db_schema;
+    protected static Schema $db_schema;
 
-    /** @var string|null */
-    protected static $schema_name;
+    protected static ?string $schema_name = null;
 
-    /** @var Schema */
-    protected $schema;
+    protected Schema $schema;
 
     public static function setUpBeforeClass(): void
     {
         $name = static::$schema_name;
 
-        static::$data = array_map(function($value){
+        static::$data = array_map(function ($value) {
             if (is_string($value)) {
                 $value = rtrim($value);
             }
@@ -55,27 +56,26 @@ class BaseClass extends TestCase
         $this->schema = static::$db_schema;
     }
 
-    public function testCreateTable()
+    public function testCreateTable(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
-
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
         });
 
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testAddSingleColumn()
+    public function testAddSingleColumn(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a');
         });
 
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testAddMultipleColumns()
+    public function testAddMultipleColumns(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a');
             $table->integer('b');
         });
@@ -83,9 +83,9 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testTypes()
+    public function testTypes(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a');
             $table->float('b');
             $table->double('c');
@@ -108,9 +108,9 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testIntSizes()
+    public function testIntSizes(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a')->size('tiny');
             $table->integer('b')->size('small');
             $table->integer('c')->size('normal');
@@ -121,9 +121,9 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testTextSizes()
+    public function testTextSizes(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->text('a')->size('tiny');
             $table->text('b')->size('small');
             $table->text('c')->size('normal');
@@ -134,9 +134,9 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testBinarySizes()
+    public function testBinarySizes(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->binary('a')->size('tiny');
             $table->binary('b')->size('small');
             $table->binary('c')->size('normal');
@@ -147,9 +147,9 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testColumnProperties()
+    public function testColumnProperties(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a')->unsigned();
             $table->float('b')->defaultValue(0.1);
             $table->string('c')->notNull();
@@ -158,9 +158,9 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testColumnConstraints()
+    public function testColumnConstraints(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a')->primary();
             $table->integer('b')->unique();
         });
@@ -168,9 +168,9 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testColumnNamedConstraints()
+    public function testColumnNamedConstraints(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a')->primary('pk_a');
             $table->integer('b')->unique('uk_b');
         });
@@ -178,27 +178,27 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testAutoincrement()
+    public function testAutoincrement(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a')->autoincrement();
         });
 
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testNamedAutoincrement()
+    public function testNamedAutoincrement(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a')->autoincrement('x');
         });
 
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testIndex()
+    public function testIndex(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a')->index();
             $table->integer('b')->index('x');
             $table->integer('c');
@@ -213,22 +213,23 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testForeignKey()
+    public function testForeignKey(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a');
             $table->foreign('a')
                 ->references('bar', 'a')
                 ->onUpdate('cascade')
                 ->onDelete('cascade');
-        });;
+        });
+
 
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testForeignKeyMultiple()
+    public function testForeignKeyMultiple(): void
     {
-        $result = $this->schema->create('foo', function (CreateTable $table) {
+        $result = $this->schema->create('foo', function (CreateTable $table): void {
             $table->integer('a');
             $table->integer('b');
             $table->foreign(['a', 'b'])
@@ -240,18 +241,18 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testAlterTableAddColumn()
+    public function testAlterTableAddColumn(): void
     {
-        $result = $this->schema->alter('foo', function(AlterTable $table){
+        $result = $this->schema->alter('foo', function (AlterTable $table): void {
             $table->integer('a');
         });
 
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testAlterTableAddMultipleColumns()
+    public function testAlterTableAddMultipleColumns(): void
     {
-        $result = $this->schema->alter('foo', function(AlterTable $table){
+        $result = $this->schema->alter('foo', function (AlterTable $table): void {
             $table->integer('a');
             $table->integer('b');
         });
@@ -259,25 +260,25 @@ class BaseClass extends TestCase
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testAlterTableDropColumn()
+    public function testAlterTableDropColumn(): void
     {
-        $result = $this->schema->alter('foo', function(AlterTable $table){
+        $result = $this->schema->alter('foo', function (AlterTable $table): void {
             $table->dropColumn('a');
         });
 
         $this->execTest(__FUNCTION__, $result);
     }
 
-    public function testAlterTableAddDefaults()
+    public function testAlterTableAddDefaults(): void
     {
-        $result = $this->schema->alter('foo', function(AlterTable $table){
+        $result = $this->schema->alter('foo', function (AlterTable $table): void {
             $table->setDefaultValue('a', 100);
         });
 
         $this->execTest(__FUNCTION__, $result);
     }
 
-    private function execTest($test, $result)
+    private function execTest(string $test, string $result): void
     {
         $expected = static::$data[$test] ?? null;
         if ($expected === null) {

@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -52,6 +53,10 @@ use function strtoupper;
  * Mutable bag of clauses collected by the fluent statements and read by the compilers.
  *
  * @psalm-import-type ColumnArg from Expression
+ *
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity") Collects every clause type of the fluent API.
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Creates every clause value object.
+ * @SuppressWarnings("PHPMD.BooleanGetMethodName") getDistinct() is public opis/database API.
  */
 class SQLStatement
 {

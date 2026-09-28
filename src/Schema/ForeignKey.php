@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -98,16 +99,16 @@ class ForeignKey
     }
 
     /**
-     * @param 'ON DELETE'|'ON UPDATE' $on
+     * @param 'ON DELETE'|'ON UPDATE' $clause
      */
-    protected function addAction(string $on, string $action): static
+    protected function addAction(string $clause, string $action): static
     {
         $action = strtoupper($action);
         if (!in_array($action, ['RESTRICT', 'CASCADE', 'NO ACTION', 'SET NULL'], true)) {
             return $this;
         }
 
-        $this->actions[$on] = $action;
+        $this->actions[$clause] = $action;
 
         return $this;
     }

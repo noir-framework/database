@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  *
@@ -19,5 +22,5 @@ namespace Noirapi\Database\Test\Schema;
 
 class MySqlTest extends BaseClass
 {
-    protected static $schema_name = "mysql";
+    protected static ?string $schema_name = "mysql";
 }

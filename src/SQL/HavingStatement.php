@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -52,7 +53,6 @@ class HavingStatement
      * `having('col', fn (HavingExpression $e) => $e->count()->gt(5))` adds a condition;
      * `having(fn (HavingStatement $h) => ...)` adds a nested group.
      *
-     * @param string|Expression|Closure $column
      * @param (Closure(HavingExpression): mixed)|null $value
      */
     public function having(string|Expression|Closure $column, ?Closure $value = null): static
@@ -61,7 +61,6 @@ class HavingStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      * @param (Closure(HavingExpression): mixed)|null $value
      */
     public function andHaving(string|Expression|Closure $column, ?Closure $value = null): static
@@ -70,7 +69,6 @@ class HavingStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      * @param (Closure(HavingExpression): mixed)|null $value
      */
     public function orHaving(string|Expression|Closure $column, ?Closure $value = null): static
@@ -79,7 +77,6 @@ class HavingStatement
     }
 
     /**
-     * @param string|Expression|Closure $column
      * @param (Closure(HavingExpression): mixed)|null $value
      */
     protected function addCondition(string|Expression|Closure $column, ?Closure $value, string $separator): static

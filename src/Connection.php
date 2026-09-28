@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -45,11 +46,32 @@ use function preg_replace_callback;
  *
  * @phpstan-consistent-constructor
  * @psalm-consistent-constructor
+ *
+ * @SuppressWarnings("PHPMD.ExcessiveClassComplexity") opis/database API: settings, execution, logging.
+ * @SuppressWarnings("PHPMD.CouplingBetweenObjects") Wires the SQL and schema dialect compilers.
  */
 class Connection
 {
     /** Driver names whose dialects were removed in 5.0. */
     private const array REMOVED_DRIVERS = ['oci', 'oracle', 'firebird', 'db2', 'ibm', 'odbc', 'nuodb'];
+
+    private const array SQL_DIALECTS = [
+        'mysql' => SQL\Compiler\MySQL::class,
+        'dblib' => SQL\Compiler\SQLServer::class,
+        'mssql' => SQL\Compiler\SQLServer::class,
+        'sqlsrv' => SQL\Compiler\SQLServer::class,
+        'sybase' => SQL\Compiler\SQLServer::class,
+    ];
+
+    private const array SCHEMA_DIALECTS = [
+        'mysql' => Schema\Compiler\MySQL::class,
+        'pgsql' => Schema\Compiler\PostgreSQL::class,
+        'dblib' => Schema\Compiler\SQLServer::class,
+        'mssql' => Schema\Compiler\SQLServer::class,
+        'sqlsrv' => Schema\Compiler\SQLServer::class,
+        'sybase' => Schema\Compiler\SQLServer::class,
+        'sqlite' => Schema\Compiler\SQLite::class,
+    ];
 
     protected bool $logQueries = false;
 
@@ -245,11 +267,8 @@ class Connection
         if ($this->compiler === null) {
             $driver = $this->getDriver();
             $this->assertDriverSupported($driver);
-            $this->compiler = match ($driver) {
-                'mysql' => new SQL\Compiler\MySQL(),
-                'dblib', 'mssql', 'sqlsrv', 'sybase' => new SQL\Compiler\SQLServer(),
-                default => new SQL\Compiler(),
-            };
+            $dialect = self::SQL_DIALECTS[$driver] ?? SQL\Compiler::class;
+            $this->compiler = new $dialect();
             $this->compiler->setOptions($this->compilerOptions);
         }
 
@@ -264,13 +283,9 @@ class Connection
         if ($this->schemaCompiler === null) {
             $driver = $this->getDriver();
             $this->assertDriverSupported($driver);
-            $this->schemaCompiler = match ($driver) {
-                'mysql' => new Schema\Compiler\MySQL($this),
-                'pgsql' => new Schema\Compiler\PostgreSQL($this),
-                'dblib', 'mssql', 'sqlsrv', 'sybase' => new Schema\Compiler\SQLServer($this),
-                'sqlite' => new Schema\Compiler\SQLite($this),
-                default => throw new RuntimeException('Schema not supported for driver: ' . $driver),
-            };
+            $dialect = self::SCHEMA_DIALECTS[$driver]
+                ?? throw new RuntimeException('Schema not supported for driver: ' . $driver);
+            $this->schemaCompiler = new $dialect($this);
             $this->schemaCompiler->setOptions($this->schemaCompilerOptions);
         }
 

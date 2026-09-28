@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -80,7 +81,9 @@ class AlterTable
 
     public function renameColumn(string $from, string $to): static
     {
-        return $this->addCommand(new AlterCommand(AlterAction::RenameColumn, $from, column: new AlterColumn($this, $to)));
+        return $this->addCommand(
+            new AlterCommand(AlterAction::RenameColumn, $from, column: new AlterColumn($this, $to)),
+        );
     }
 
     /**

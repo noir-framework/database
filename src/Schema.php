@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -26,7 +27,6 @@ use PDOException;
 use RuntimeException;
 
 use function array_keys;
-use function is_array;
 use function is_scalar;
 use function is_string;
 use function strtolower;

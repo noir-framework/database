@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -50,13 +51,16 @@ class HavingExpression
 
     public function init(string|Expression|Closure $column, string $separator): static
     {
+        $this->separator = $separator;
+
         if ($column instanceof Closure) {
             /** @var Closure(Expression): mixed $column */
             $this->column = Expression::fromClosure($column);
-        } else {
-            $this->column = $column;
+
+            return $this;
         }
-        $this->separator = $separator;
+
+        $this->column = $column;
 
         return $this;
     }

@@ -1,4 +1,5 @@
 <?php
+
 /* ===========================================================================
  * Copyright 2018 Zindex Software
  * Copyright 2026 noir-framework
@@ -28,6 +29,9 @@ use function is_string;
  * The comparison half of a WHERE condition: `where('age')` returns this, `->is(21)` finishes it.
  *
  * @template TStatement of WhereStatement
+ *
+ * @SuppressWarnings("PHPMD.CamelCaseParameterName") $is_column is public opis/database API (named arguments).
+ * @SuppressWarnings("PHPMD.CamelCaseVariableName") $is_column is public opis/database API (named arguments).
  */
 class Where
 {
@@ -56,13 +60,16 @@ class Where
 
     public function init(string|Expression|Closure $column, string $separator): static
     {
+        $this->separator = $separator;
+
         if ($column instanceof Closure) {
             /** @var Closure(Expression): mixed $column */
             $this->column = Expression::fromClosure($column);
-        } else {
-            $this->column = $column;
+
+            return $this;
         }
-        $this->separator = $separator;
+
+        $this->column = $column;
 
         return $this;
     }
