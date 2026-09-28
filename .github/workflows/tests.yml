@@ -45,3 +45,51 @@ jobs:
 
       - name: Tests
         run: composer test
+
+  integration:
+    runs-on: ubuntu-latest
+    name: Integration (MariaDB, PostgreSQL, SQL Server)
+
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env: { MARIADB_DATABASE: test, MARIADB_USER: test, MARIADB_PASSWORD: test, MARIADB_ROOT_PASSWORD: test }
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "healthcheck.sh --connect" --health-interval 2s --health-retries 30
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: test, POSTGRES_USER: test, POSTGRES_PASSWORD: test }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test" --health-interval 2s --health-retries 30
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env: { ACCEPT_EULA: 'Y', MSSQL_SA_PASSWORD: 'Noirapi-Test1' }
+        ports: ['1433:1433']
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Noirapi-Test1 -Q 'SELECT 1' || exit 1"
+          --health-interval 3s --health-retries 40
+
+    env:
+      NOIRAPI_DB_MYSQL_DSN: 'mysql:host=127.0.0.1;dbname=test'
+      NOIRAPI_DB_PGSQL_DSN: 'pgsql:host=127.0.0.1;port=5432;dbname=test'
+      NOIRAPI_DB_SQLSRV_DSN: 'sqlsrv:Server=127.0.0.1,1433;Database=master;TrustServerCertificate=1'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo, pdo_sqlite, pdo_mysql, pdo_pgsql, pdo_sqlsrv
+          tools: composer:v2
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --no-interaction --no-progress
+
+      - name: Integration tests
+        run: vendor/bin/phpunit --testsuite Integration --fail-on-skipped

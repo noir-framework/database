@@ -45,6 +45,8 @@ use function is_string;
 use function microtime;
 use function preg_match;
 use function preg_replace_callback;
+use function random_int;
+use function usleep;
 
 /**
  * Lazily connected PDO wrapper that picks the SQL and schema compilers for its driver.
@@ -468,40 +470,72 @@ class Connection
      * Any exception rolls the transaction back. A PDOException then returns $default (or is
      * re-thrown with throwTransactionExceptions()); any other exception is always re-thrown.
      *
+     * With $attempts > 1, a transaction that fails because of a deadlock or a lock wait timeout
+     * (see isRetryable()) is rolled back and run again, after a short growing pause. The
+     * callback must then be safe to run more than once.
+     *
      * @template TResult
      * @template TDefault
      *
      * @param callable(mixed): TResult $callback
      * @param TDefault $default Returned when the transaction fails and exceptions are not rethrown
+     * @param positive-int $attempts How often to run the transaction when it deadlocks
      *
      * @return TResult|TDefault
      *
      * @throws PDOException When throwTransactionExceptions() is enabled
      * @throws Throwable Any non-PDO exception from the callback, after the rollback
      */
-    public function transaction(callable $callback, mixed $that = null, mixed $default = null): mixed
-    {
+    public function transaction(
+        callable $callback,
+        mixed $that = null,
+        mixed $default = null,
+        int $attempts = 1,
+    ): mixed {
         $pdo = $this->getPDO();
 
         if ($pdo->inTransaction()) {
             return $callback($that ?? $this);
         }
 
-        $pdo->beginTransaction();
+        for ($attempt = 1;; $attempt++) {
+            $pdo->beginTransaction();
 
-        try {
-            $result = $callback($that ?? $this);
-            $pdo->commit();
+            try {
+                $result = $callback($that ?? $this);
+                $pdo->commit();
 
-            return $result;
-        } catch (Throwable $exception) {
-            $this->rollBackOpenTransaction($pdo);
-            if (!$exception instanceof PDOException || $this->throwTransactionExceptions) {
-                throw $exception;
+                return $result;
+            } catch (Throwable $exception) {
+                $this->rollBackOpenTransaction($pdo);
+                if (!$exception instanceof PDOException) {
+                    throw $exception;
+                }
+
+                if ($attempt < $attempts && self::isRetryable($exception)) {
+                    usleep(random_int(10_000, 50_000) * $attempt);
+                    continue;
+                }
+
+                if ($this->throwTransactionExceptions) {
+                    throw $exception;
+                }
+
+                return $default;
             }
-
-            return $default;
         }
+    }
+
+    /**
+     * Deadlocks and lock wait timeouts, which succeed when simply run again: SQLSTATE 40001
+     * (MySQL deadlock, SQL Server deadlock victim, serialization failure), 40P01 (PostgreSQL
+     * deadlock), MySQL 1213 / 1205 and SQL Server 1205.
+     */
+    public static function isRetryable(PDOException $exception): bool
+    {
+        $info = $exception->errorInfo ?? [];
+
+        return in_array($info[0] ?? null, ['40001', '40P01'], true) || in_array($info[1] ?? null, [1205, 1213], true);
     }
 
     /**

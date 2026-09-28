@@ -27,8 +27,17 @@ php .cache/docs-bot/fetch-opis-docs.php --out=<dir>        # re-import the origi
 
 `.cache/` is gitignored, so the two docs-bot scripts are local tools and are never committed.
 
-`tests/Integration/MySqlTest.php` runs against a real MySQL or MariaDB server: `NOIRAPI_DB_MYSQL_DSN`, `_USER` and `_PASSWORD`, defaulting to database, user and password `test` on localhost (MariaDB 10.11 on this machine). It skips when the server is unreachable, and it creates and drops only `t_*` tables. PHP here has no pdo_pgsql or pdo_dblib, so PostgreSQL and SQL Server output is covered by SQL string tests only.
+Real PostgreSQL 16, SQL Server 2022 and MariaDB run in Docker (PHP here has no pdo_pgsql or pdo_sqlsrv, so the tests run inside a PHP 8.4 image that has them):
 
+```bash
+docker compose -f tests/docker/compose.yml up -d --wait mariadb postgres mssql
+docker compose -f tests/docker/compose.yml --profile php run --rm php vendor/bin/phpunit --testsuite Integration --fail-on-skipped
+docker compose -f tests/docker/compose.yml down
+```
+
+`tests/Integration/ServerScenarios.php` holds the shared scenarios. `PostgreSqlTest`, `SqlServerTest` and `MySqlScenariosTest` extend it, each configured by `NOIRAPI_DB_<PGSQL|SQLSRV|MYSQL>_DSN/_USER/_PASSWORD`, and each skips when its driver or server is missing. CI (`.github/workflows/tests.yml`, job `integration`) runs them with service containers and `--fail-on-skipped`. Run the Docker suite before a release: its first run found four bugs that string tests had missed.
+
+`tests/Integration/MySqlTest.php` runs against a real MySQL or MariaDB server: `NOIRAPI_DB_MYSQL_DSN`, `_USER` and `_PASSWORD`, defaulting to database, user and password `test` on localhost (MariaDB 10.11 on this machine). It skips when the server is unreachable, and it creates and drops only `t_*` tables. 
 Every gate must stay at zero, with no baseline files. If PHPMD reports results that don't match the code, the user-level PDepend cache (`~/.pdepend`) is stale. Run it with `HOME=<tmpdir>` instead of deleting the cache.
 
 ## Architecture

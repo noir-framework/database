@@ -1,0 +1,34 @@
+# Integration test servers. From the repository root:
+#   docker compose -f tests/docker/compose.yml up -d --wait mariadb postgres mssql
+#   docker compose -f tests/docker/compose.yml run --rm php vendor/bin/phpunit --testsuite Integration
+#   docker compose -f tests/docker/compose.yml down
+services:
+  mariadb:
+    image: mariadb:10.11
+    environment: { MARIADB_DATABASE: test, MARIADB_USER: test, MARIADB_PASSWORD: test, MARIADB_ROOT_PASSWORD: test }
+    ports: ["53306:3306"]
+    healthcheck: { test: ["CMD", "healthcheck.sh", "--connect"], interval: 2s, retries: 30 }
+
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: test, POSTGRES_USER: test, POSTGRES_PASSWORD: test }
+    ports: ["55432:5432"]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "test"], interval: 2s, retries: 30 }
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment: { ACCEPT_EULA: "Y", MSSQL_SA_PASSWORD: "Noirapi-Test1" }
+    ports: ["51433:1433"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Noirapi-Test1 -Q 'SELECT 1' || exit 1"]
+      interval: 3s
+      retries: 40
+
+  php:
+    build: .
+    volumes: ["../..:/app"]
+    environment:
+      NOIRAPI_DB_MYSQL_DSN: "mysql:host=mariadb;dbname=test"
+      NOIRAPI_DB_PGSQL_DSN: "pgsql:host=postgres;dbname=test"
+      NOIRAPI_DB_SQLSRV_DSN: "sqlsrv:Server=mssql;Database=master;TrustServerCertificate=1"
+    profiles: ["php"]

@@ -24,5 +24,10 @@ SELECT AVG(`age`) FROM `users` WHERE `active` = 1
 grouped query without rows gives `0`. The other functions return what the driver returns, so
 `sum()` and `avg()` may be strings for DECIMAL columns.
 
+Without `groupBy()`, any `orderBy()` on the query is left out of the aggregate query, since the
+result is a single row (PostgreSQL and SQL Server reject `COUNT(*) ... ORDER BY`). This lets you
+reuse a list query for its count. With `groupBy()`, the order is kept, because it decides which
+group's value is returned.
+
 To compute several aggregates in one query, select them with a
 [closure](fields-selection.md#aggregates).

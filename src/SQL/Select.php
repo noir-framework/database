@@ -93,7 +93,7 @@ class Select extends SelectStatement
         parent::count($column, $distinct);
 
         // PDO returns a numeric string with emulated prepares, and false when a GROUP BY matches nothing.
-        return self::toInt($this->getColumnResult());
+        return self::toInt($this->getAggregateResult());
     }
 
     /**
@@ -104,7 +104,7 @@ class Select extends SelectStatement
     {
         parent::avg($column, $distinct);
 
-        return $this->getColumnResult();
+        return $this->getAggregateResult();
     }
 
     /**
@@ -115,7 +115,7 @@ class Select extends SelectStatement
     {
         parent::sum($column, $distinct);
 
-        return $this->getColumnResult();
+        return $this->getAggregateResult();
     }
 
     /**
@@ -126,7 +126,7 @@ class Select extends SelectStatement
     {
         parent::min($column, $distinct);
 
-        return $this->getColumnResult();
+        return $this->getAggregateResult();
     }
 
     /**
@@ -137,12 +137,25 @@ class Select extends SelectStatement
     {
         parent::max($column, $distinct);
 
-        return $this->getColumnResult();
+        return $this->getAggregateResult();
     }
 
     private static function toInt(mixed $value): int
     {
         return is_numeric($value) ? (int) $value : 0;
+    }
+
+    /**
+     * Without GROUP BY an aggregate returns one row, so ORDER BY is dropped: PostgreSQL and
+     * SQL Server reject `SELECT COUNT(*) ... ORDER BY col`. With GROUP BY the order picks the
+     * group whose value is returned, so it is kept.
+     */
+    protected function getAggregateResult(): mixed
+    {
+        $sql = $this->sql->getGroupBy() === [] ? $this->sql->withoutOrder() : $this->sql;
+        $compiler = $this->connection->getCompiler();
+
+        return $this->connection->column($compiler->select($sql), $compiler->getParams());
     }
 
     protected function getColumnResult(): mixed

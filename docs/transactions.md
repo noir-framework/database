@@ -22,6 +22,26 @@ $orderId = $db->transaction(function (Database $db) use ($cart): string|false {
 When the callback is called while a transaction is already open, it runs inside that
 transaction, so transactional helpers can call each other.
 
+## Retrying after deadlocks
+
+Under concurrent writes the database may abort a transaction to break a deadlock, or give up
+waiting for a lock. Running it again usually succeeds. Pass `attempts` to do that
+automatically:
+
+```php
+$db->transaction(function (Database $db) use ($orderId): void {
+    $db->update('stock')->where('sku')->in($skus)->decrement('qty');
+    $db->update('orders')->where('id')->is($orderId)->setBits('flags', OrderFlags::RESERVED);
+}, attempts: 3);
+```
+
+The transaction is rolled back and run again (after a short, growing, random pause) when it
+fails with SQLSTATE `40001` (MySQL deadlock, SQL Server deadlock victim, serialization
+failure) or `40P01` (PostgreSQL deadlock), or with MySQL error 1213 / 1205 or SQL Server error
+1205. Other errors are not retried. Because the callback may run more than once, it must not
+have side effects outside the database (sending mail, calling APIs) before it returns.
+`Connection::isRetryable($exception)` exposes the same test.
+
 ## On failure
 
 By default a failed transaction is rolled back and `transaction()` returns its second

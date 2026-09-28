@@ -28,6 +28,8 @@ use Noirapi\Database\Schema\Compiler;
 use Noirapi\Database\Schema\CreateTable;
 use Override;
 
+use function str_replace;
+
 class SQLServer extends Compiler
 {
     protected string $wrapper = '[%s]';
@@ -129,11 +131,19 @@ class SQLServer extends Compiler
         return 'DATETIME';
     }
 
+    /**
+     * sp_rename takes the names as strings: `EXEC sp_rename N'table.old', N'new', 'COLUMN'`.
+     */
     #[Override]
     protected function handleRenameColumn(AlterTable $table, AlterCommand $command): string
     {
-        return 'sp_rename ' . $this->wrap($table->getTableName()) . '.' . $this->wrap($command->name) . ', '
-            . $this->wrap($command->column()->getName()) . ', COLUMN';
+        return "EXEC sp_rename N'" . $this->literal($table->getTableName() . '.' . $command->name) . "', N'"
+            . $this->literal($command->column()->getName()) . "', 'COLUMN'";
+    }
+
+    private function literal(string $value): string
+    {
+        return str_replace("'", "''", $value);
     }
 
     #[Override]

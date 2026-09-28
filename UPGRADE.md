@@ -76,6 +76,8 @@ needed either: the result is typed as `User|false`.
 | Non-PDO exception inside `transaction()` | re-thrown, transaction left open | rolled back, then re-thrown |
 | SQL Server `double()` column | `DOUBLE` (invalid) | `FLOAT(53)` |
 | `in([])` / `notIn([])` | `IN ()` (syntax error) | `1 = 0` / `1 = 1` |
+| `count()` etc. after `orderBy()`, without `groupBy()` | `... ORDER BY col` (fails on PostgreSQL / SQL Server) | ORDER BY dropped |
+| SQL Server `renameColumn()` | `sp_rename [t].[a], [b], COLUMN` (syntax error) | `EXEC sp_rename N't.a', N'b', 'COLUMN'` |
 
 Native parameter types are now declared everywhere. Code that passed unexpected types (for
 example `null` where a string is expected) will get a `TypeError` instead of silently

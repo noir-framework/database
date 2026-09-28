@@ -449,4 +449,40 @@ final class SqliteTest extends TestCase
         $this->assertCount(3, $seen);
         $this->assertCount(1, $connection->getLog());
     }
+
+    public function testTransactionAttempts(): void
+    {
+        $deadlock = static function (): \PDOException {
+            $e = new \PDOException('Deadlock found');
+            $e->errorInfo = ['40001', 1213, 'Deadlock found when trying to get lock'];
+
+            return $e;
+        };
+
+        $runs = 0;
+        $result = $this->db->transaction(function (Database $db) use (&$runs, $deadlock): int {
+            $db->insert(['name' => 'Try' . ++$runs])->into('users');
+            if ($runs < 3) {
+                throw $deadlock();
+            }
+
+            return $runs;
+        }, 'failed', attempts: 3);
+        $this->assertSame(3, $result);
+        $this->assertSame(['Try3'], iterator_to_array($this->db->from('users')->where('name')->like('Try%')->select('name')->lazy(\PDO::FETCH_COLUMN)));
+
+        $runs = 0;
+        $this->assertSame('failed', $this->db->transaction(function () use (&$runs, $deadlock): void {
+            $runs++;
+            throw $deadlock();
+        }, 'failed', attempts: 2));
+        $this->assertSame(2, $runs);
+
+        $runs = 0;
+        $this->assertSame('failed', $this->db->transaction(function () use (&$runs): void {
+            $runs++;
+            throw new \PDOException('syntax error');
+        }, 'failed', attempts: 5));
+        $this->assertSame(1, $runs);
+    }
 }

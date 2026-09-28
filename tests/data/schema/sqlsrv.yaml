@@ -23,4 +23,4 @@ testJson: |
   [a] NVARCHAR(max)
   )
 testAlterTableRenameColumn: |
-  sp_rename [foo].[a], [b], COLUMN
+  EXEC sp_rename N'foo.a', N'b', 'COLUMN'

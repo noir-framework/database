@@ -561,6 +561,17 @@ class SQLStatement
     }
 
     /**
+     * A copy without ORDER BY.
+     */
+    public function withoutOrder(): static
+    {
+        $copy = clone $this;
+        $copy->order = [];
+
+        return $copy;
+    }
+
+    /**
      * A copy holding only the given INSERT rows (used to split large multi-row inserts).
      *
      * @param non-empty-list<list<mixed>> $rows

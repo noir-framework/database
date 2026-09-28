@@ -112,14 +112,15 @@ class Database
      *
      * @param callable(Database): TResult $query
      * @param TDefault $default
+     * @param positive-int $attempts Run again after a deadlock or lock wait timeout, see Connection::transaction()
      *
      * @return TResult|TDefault
      *
      * @throws PDOException
      */
-    public function transaction(callable $query, mixed $default = null): mixed
+    public function transaction(callable $query, mixed $default = null, int $attempts = 1): mixed
     {
         /** @var callable(mixed): TResult $query */
-        return $this->connection->transaction($query, $this, $default);
+        return $this->connection->transaction($query, $this, $default, $attempts);
     }
 }

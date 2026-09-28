@@ -359,10 +359,18 @@ class Compiler
     {
         $sql = $this->wrap($bits->column);
         if ($bits->clear !== 0) {
-            $sql = '(' . $sql . ' & ~' . $this->param($bits->clear) . ')';
+            $sql = '(' . $sql . ' & ~' . $this->bitMask($bits->clear) . ')';
         }
 
         return $bits->set === 0 ? $sql : $sql . ' | ' . $this->param($bits->set);
+    }
+
+    /**
+     * A bound bit mask; dialects that cannot infer the parameter's type add a cast.
+     */
+    protected function bitMask(int $mask): string
+    {
+        return $this->param($mask);
     }
 
     /**

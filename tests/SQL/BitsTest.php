@@ -60,7 +60,7 @@ class BitsTest extends TestCase
             ])),
         );
         $this->assertSame(
-            'UPDATE "orders" SET "flags" = ("flags" & ~3) | 8',
+            'UPDATE "orders" SET "flags" = ("flags" & ~CAST(3 AS BIGINT)) | 8',
             $this->compile('pgsql', fn (Database $db) => $db->update('orders')->set([
                 'flags' => fn (Expression $e) => $e->bits('flags', set: 8, clear: 3, signed: true),
             ])),

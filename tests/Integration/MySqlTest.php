@@ -327,6 +327,34 @@ final class MySqlTest extends TestCase
         }
     }
 
+    public function testTransactionRetriesAfterLockWaitTimeout(): void
+    {
+        $this->db->insert(['name' => 'Ann', 'age' => 1])->into('t_users');
+        $this->db->getConnection()->command('SET SESSION innodb_lock_wait_timeout = 1');
+
+        $holder = new Connection(
+            self::env('NOIRAPI_DB_MYSQL_DSN', 'mysql:host=localhost;dbname=test'),
+            self::env('NOIRAPI_DB_MYSQL_USER', 'test'),
+            self::env('NOIRAPI_DB_MYSQL_PASSWORD', 'test'),
+        );
+        $holder->getPDO()->beginTransaction();
+        $holder->query('SELECT * FROM t_users WHERE name = ? FOR UPDATE', ['Ann'])->all();
+
+        $attempts = 0;
+        $result = $this->db->transaction(function (Database $db) use (&$attempts, $holder): string {
+            if (++$attempts === 2) {
+                $holder->getPDO()->commit();          // release the lock before the retry
+            }
+            $db->update('t_users')->where('name')->is('Ann')->set(['age' => 2]);
+
+            return 'done';
+        }, 'failed', attempts: 3);
+
+        $this->assertSame('done', $result);
+        $this->assertSame(2, $attempts);
+        $this->assertSame(2, $this->db->from('t_users')->where('name')->is('Ann')->column('age'));
+    }
+
     private function dropAll(): void
     {
         $pdo = $this->db->getConnection()->getPDO();

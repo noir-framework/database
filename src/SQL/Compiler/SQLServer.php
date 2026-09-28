@@ -50,8 +50,8 @@ class SQLServer extends Compiler
 
     protected string $wrapper = '[%s]';
 
-    /** The RPC limit of SQL Server. */
-    protected int $maxParams = 2100;
+    /** SQL Server allows 2,100 parameters per request, including some the driver adds itself. */
+    protected int $maxParams = 2000;
 
     /**
      * Emulates LIMIT with TOP, and LIMIT + OFFSET with ROW_NUMBER().

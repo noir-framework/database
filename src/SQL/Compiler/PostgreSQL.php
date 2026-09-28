@@ -80,6 +80,15 @@ class PostgreSQL extends Compiler
             . $this->intervalUnit($date->unit) . ' => ' . $this->dateAmount($date->amount) . '))';
     }
 
+    /**
+     * `~$1` is ambiguous for an untyped parameter.
+     */
+    #[Override]
+    protected function bitMask(int $mask): string
+    {
+        return 'CAST(' . $this->param($mask) . ' AS BIGINT)';
+    }
+
     #[Override]
     protected function jsonExtract(string $column, JsonPath $path): string
     {

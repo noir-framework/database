@@ -6,6 +6,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- `transaction($callback, $default, attempts: 3)` runs the transaction again after a deadlock or
+  lock wait timeout (SQLSTATE 40001 / 40P01, MySQL 1213 / 1205, SQL Server 1205);
+  `Connection::isRetryable()`
+- Integration tests against real PostgreSQL 16 and SQL Server 2022 (shared `ServerScenarios`,
+  also run on MariaDB); `tests/docker/compose.yml` starts all servers, and CI runs them
 - `Connection::reconnectOnLostConnection()`: reconnect and retry once after MySQL "server has
   gone away" / "lost connection" (never inside a transaction)
 - `logQueries($value, $limit)` keeps only the newest entries; `clearLog()`; `onQuery($listener)`
@@ -17,6 +22,15 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
+Found by the new PostgreSQL / SQL Server integration tests:
+
+- `count()` / `sum()` / ... after `orderBy()` generated `SELECT COUNT(*) ... ORDER BY col`, which
+  PostgreSQL and SQL Server reject; without GROUP BY the ORDER BY is now dropped
+- `clearBits()` / `bits(clear:)` failed on PostgreSQL (`~$1` has no type); the mask is cast
+- SQL Server `renameColumn()` generated invalid `sp_rename [t].[a], [b], COLUMN` (inherited from
+  opis/database); it is now `EXEC sp_rename N't.a', N'b', 'COLUMN'`
+- SQL Server multi-row inserts were split at 2,100 parameters, which the server already rejects;
+  the limit is 2,000
 - A failing statement's `PDOException` lost the driver's `errorInfo` (e.g. MySQL 1062) and
   its original exception; both are kept now (`getPrevious()` is the driver's exception)
 - `in([])` / `notIn([])` (and the HAVING forms) generated `IN ()`, a syntax error; an empty list
