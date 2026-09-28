@@ -23,10 +23,14 @@ namespace Noirapi\Database;
 
 use Closure;
 use Generator;
+use InvalidArgumentException;
 use IteratorAggregate;
 use Override;
 use PDO;
 use PDOStatement;
+use stdClass;
+
+use function is_array;
 
 /**
  * Wraps an executed PDOStatement. Choose a fetch mode (`fetchAssoc()`, `fetchClass()`, ...)
@@ -44,6 +48,17 @@ class ResultSet implements IteratorAggregate
     private const int FETCH_GROUP = PDO::FETCH_GROUP;
 
     private const int FETCH_GROUP_UNIQUE = PDO::FETCH_GROUP | PDO::FETCH_UNIQUE;
+
+    /** @var array<string, string|Closure(mixed): mixed> column => cast */
+    private array $casts = [];
+
+    private ?RowCaster $caster = null;
+
+    /** @var class-string|null Set by fetchClass() */
+    private ?string $class = null;
+
+    /** @var list<mixed> */
+    private array $ctorArgs = [];
 
     public function __construct(protected PDOStatement $statement)
     {
@@ -69,6 +84,15 @@ class ResultSet implements IteratorAggregate
      */
     public function all(?callable $callable = null, int $fetchStyle = 0): array
     {
+        if ($callable === null && $fetchStyle === 0 && $this->caster !== null) {
+            $rows = [];
+            while (($row = $this->fetchRow()) !== false) {
+                $rows[] = $row;
+            }
+
+            return $rows;
+        }
+
         if ($callable === null) {
             return $this->statement->fetchAll($fetchStyle);
         }
@@ -88,7 +112,7 @@ class ResultSet implements IteratorAggregate
         try {
             while (true) {
                 /** @var TRow|false $row */
-                $row = $this->statement->fetch($fetchStyle);
+                $row = $fetchStyle === 0 ? $this->fetchRow() : $this->statement->fetch($fetchStyle);
                 if ($row === false) {
                     return;
                 }
@@ -141,10 +165,7 @@ class ResultSet implements IteratorAggregate
     {
         try {
             if ($callable === null) {
-                /** @var TRow|false $row */
-                $row = $this->statement->fetch();
-
-                return $row;
+                return $this->fetchRow();
             }
 
             /** @var array<string, mixed>|false $assoc */
@@ -161,10 +182,28 @@ class ResultSet implements IteratorAggregate
      */
     public function next(): mixed
     {
-        /** @var TRow|false $row */
-        $row = $this->statement->fetch();
+        return $this->fetchRow();
+    }
 
-        return $row;
+    /**
+     * Converts column values as rows are read, for `all()`, `first()`, `next()` and iteration:
+     * `->cast(['meta' => 'json', 'active' => 'bool', 'created_at' => 'datetime'])`.
+     *
+     * Casts: `int`, `float`, `bool`, `string`, `json` (decoded to arrays), `datetime`
+     * (DateTimeImmutable) or a closure. NULL stays NULL. With fetchClass(), the row is converted
+     * before the object is built, so typed properties (`public array $meta`) receive the
+     * converted value; only declared properties are set, then the constructor runs.
+     *
+     * @param array<string, string|Closure(mixed): mixed> $casts column => cast
+     *
+     * @throws InvalidArgumentException On an unknown cast name
+     */
+    public function cast(array $casts): static
+    {
+        $this->casts = $casts + $this->casts;
+        $this->caster = new RowCaster($this->casts);
+
+        return $this;
     }
 
     public function flush(): bool
@@ -183,6 +222,7 @@ class ResultSet implements IteratorAggregate
     public function fetchAssoc(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_ASSOC);
+        $this->class = null;
 
         /** @var self<array<string, mixed>> $result */
         $result = $this->rebind();
@@ -196,6 +236,7 @@ class ResultSet implements IteratorAggregate
     public function fetchObject(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_OBJ);
+        $this->class = null;
 
         /** @var self<\stdClass> $result */
         $result = $this->rebind();
@@ -209,6 +250,7 @@ class ResultSet implements IteratorAggregate
     public function fetchNamed(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_NAMED);
+        $this->class = null;
 
         /** @var self<array<string, mixed>> $result */
         $result = $this->rebind();
@@ -222,6 +264,7 @@ class ResultSet implements IteratorAggregate
     public function fetchNum(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_NUM);
+        $this->class = null;
 
         /** @var self<list<mixed>> $result */
         $result = $this->rebind();
@@ -235,6 +278,7 @@ class ResultSet implements IteratorAggregate
     public function fetchBoth(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_BOTH);
+        $this->class = null;
 
         /** @var self<array<int|string, mixed>> $result */
         $result = $this->rebind();
@@ -248,6 +292,7 @@ class ResultSet implements IteratorAggregate
     public function fetchKeyPair(): self
     {
         $this->statement->setFetchMode(PDO::FETCH_KEY_PAIR);
+        $this->class = null;
 
         /** @var self<mixed> $result */
         $result = $this->rebind();
@@ -266,6 +311,8 @@ class ResultSet implements IteratorAggregate
     public function fetchClass(string $class, array $ctorargs = []): self
     {
         $this->statement->setFetchMode(PDO::FETCH_CLASS, $class, $ctorargs);
+        $this->class = $class;
+        $this->ctorArgs = $ctorargs;
 
         /** @var self<TClass> $result */
         $result = $this->rebind();
@@ -279,8 +326,42 @@ class ResultSet implements IteratorAggregate
     public function fetchCustom(Closure $func): static
     {
         $func($this->statement);
+        $this->class = null;
 
         return $this;
+    }
+
+    /**
+     * The next row in the current fetch mode, with the casts applied.
+     *
+     * @return TRow|false
+     */
+    private function fetchRow(): mixed
+    {
+        $caster = $this->caster;
+        if ($caster === null) {
+            /** @var TRow|false */
+            return $this->statement->fetch();
+        }
+
+        if ($this->class !== null) {
+            /** @var array<string, mixed>|false $row */
+            $row = $this->statement->fetch(PDO::FETCH_ASSOC);
+
+            /** @var TRow|false */
+            return $row === false ? false : $caster->hydrate($this->class, $caster->castArray($row), $this->ctorArgs);
+        }
+
+        /** @var mixed $row */
+        $row = $this->statement->fetch();
+        if (is_array($row)) {
+            $row = $caster->castArray($row);
+        } elseif ($row instanceof stdClass) {
+            $row = (object) $caster->castArray((array) $row);
+        }
+
+        /** @var TRow|false */
+        return $row;
     }
 
     /**

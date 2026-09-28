@@ -6,6 +6,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- `ResultSet::cast(['col' => 'json'|'int'|'float'|'bool'|'string'|'datetime'|Closure])` converts
+  column values while reading; with `fetchClass()` the row is converted before hydration, so
+  typed properties work
 - Rector set `rector/set.php` (`BitMaskWhereRector`, `RawFunctionCallRector`) that rewrites
   hand-built bit mask conditions and `op('FUNC(')...op(')')` calls to the 5.0 helpers
 - `transaction($callback, $default, attempts: 3)` runs the transaction again after a deadlock or

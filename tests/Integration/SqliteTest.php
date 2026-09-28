@@ -485,4 +485,43 @@ final class SqliteTest extends TestCase
         }, 'failed', attempts: 5));
         $this->assertSame(1, $runs);
     }
+
+    public function testCasts(): void
+    {
+        $this->db->schema()->alter('users', static function (AlterTable $table): void {
+            $table->json('meta');
+            $table->integer('vip');
+            $table->dateTime('seen');
+        });
+        $this->db->update('users')->where('name')->is('Ann')->set(['meta' => '{"a": [1, 2]}', 'vip' => 1, 'seen' => '2026-09-28 10:00:00']);
+        $this->db->update('users')->where('name')->is('Bob')->set(['vip' => 0]);
+
+        $casts = ['meta' => 'json', 'vip' => 'bool', 'seen' => 'datetime'];
+        $users = $this->db->from('users')->where('name')->in(['Ann', 'Bob'])->orderBy('id')
+            ->select(['id', 'name', 'meta', 'vip', 'seen'])->fetchClass(TypedUser::class, ['user: '])->cast($casts)->all();
+        $this->assertCount(2, $users);
+        $this->assertSame(['a' => [1, 2]], $users[0]->meta);
+        $this->assertTrue($users[0]->vip);
+        $this->assertEquals(new \DateTimeImmutable('2026-09-28 10:00:00'), $users[0]->seen);
+        $this->assertSame('user: Ann', $users[0]->label);
+        $this->assertNull($users[1]->meta);
+        $this->assertFalse($users[1]->vip);
+
+        $row = $this->db->from('users')->where('name')->is('Ann')->select(['age', 'meta'])->fetchAssoc()
+            ->cast(['meta' => 'json', 'age' => static fn (mixed $v): string => 'age ' . (is_scalar($v) ? (string) $v : '')])->first();
+        $this->assertSame(['age' => 'age 30', 'meta' => ['a' => [1, 2]]], $row);
+
+        $object = $this->db->from('users')->where('name')->is('Ann')->select(['vip'])->cast(['vip' => 'bool'])->first();
+        $this->assertIsObject($object);
+        $this->assertTrue($object->vip);
+
+        $vips = [];
+        foreach ($this->db->from('users')->orderBy('id')->select(['name', 'vip'])->fetchAssoc()->cast(['vip' => 'bool']) as $user) {
+            $vips[$user['name']] = $user['vip'];
+        }
+        $this->assertSame(['Ann' => true, 'Bob' => false, 'Cid' => null], $vips);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->db->from('users')->select()->cast(['vip' => 'boolean']);
+    }
 }

@@ -45,6 +45,34 @@ $users = $db->from('users')->select(['id', 'name'])->fetchClass(User::class)->al
 `ResultSet` is generic over its row type, so PHPStan and Psalm see `$users` as `list<User>`
 and `->first()` as `User|false`, with no `@var` casts needed.
 
+## Converting column values
+
+Databases return most values as strings (JSON documents, booleans stored as `TINYINT`, dates,
+and large `UNSIGNED BIGINT` values). `cast()` converts named columns as rows are read:
+
+```php
+$users = $db->from('users')
+    ->select(['id', 'name', 'meta', 'vip', 'seen'])
+    ->fetchClass(User::class)
+    ->cast(['meta' => 'json', 'vip' => 'bool', 'seen' => 'datetime'])
+    ->all();
+```
+
+| Cast | Result |
+|---|---|
+| `int`, `float`, `bool`, `string` | the PHP scalar |
+| `json` | `json_decode($value, true)` (throws `JsonException` on invalid JSON) |
+| `datetime` | `DateTimeImmutable` |
+| a closure | whatever it returns: `fn (mixed $v) => Money::fromCents((int) $v)` |
+
+`NULL` stays `NULL`. Casts apply to `all()`, `first()`, `next()` and iteration, in every fetch
+mode that has column names (objects, arrays, classes).
+
+With `fetchClass()`, the row is converted before the object is built, so typed properties such
+as `public array $meta` or `public bool $vip` work; plain `fetchClass()` would hand them the raw
+strings and fail with a `TypeError`. As with PDO, properties are set first and then the
+constructor runs; columns without a declared property are skipped.
+
 ## Mapping rows with a callback
 
 `all()` and `first()` take a callback that receives each row's columns as arguments:
