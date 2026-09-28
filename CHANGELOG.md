@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Psalm taint sinks on `Expression::op()` and the raw `Connection` methods, so
+  `psalm --taint-analysis` in an application reports user input reaching raw SQL
 - `paginate($page, $perPage, $columns)` on queries returns a `Page` (results, total, `lastPage()`,
   `hasMore()`); grouped and DISTINCT queries are counted as a sub-query
 - `ResultSet::cast(['col' => 'json'|'int'|'float'|'bool'|'string'|'datetime'|Closure])` converts
@@ -29,6 +31,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
+- Identifiers were wrapped in quotes without escaping, so a name containing the quote character
+  (`orderBy($_GET['sort'])` with a backtick) could inject SQL; the quote character is now
+  doubled inside names (inherited from opis/database)
 Found by the new PostgreSQL / SQL Server integration tests:
 
 - `count()` / `sum()` / ... after `orderBy()` generated `SELECT COUNT(*) ... ORDER BY col`, which

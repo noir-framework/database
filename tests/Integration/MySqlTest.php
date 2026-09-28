@@ -355,6 +355,17 @@ final class MySqlTest extends TestCase
         $this->assertSame(2, $this->db->from('t_users')->where('name')->is('Ann')->column('age'));
     }
 
+    public function testInjectedSortColumnStaysAnIdentifier(): void
+    {
+        $this->db->insert(['name' => 'Ann', 'age' => 1])->into('t_users');
+        try {
+            $this->db->from('t_users')->orderBy('name` DESC, (SELECT SLEEP(3)) -- ')->select()->all();
+            $this->fail('An unknown column is expected');
+        } catch (PDOException $e) {
+            $this->assertSame(1054, $e->errorInfo[1] ?? null); // unknown column, nothing injected
+        }
+    }
+
     private function dropAll(): void
     {
         $pdo = $this->db->getConnection()->getPDO();

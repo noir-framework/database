@@ -35,6 +35,7 @@ use function is_string;
 use function sprintf;
 use function str_replace;
 use function strtoupper;
+use function substr;
 use function trim;
 
 /**
@@ -228,9 +229,14 @@ class Compiler
         return ['sql' => 'TRUNCATE TABLE ' . $this->wrap($table), 'params' => []];
     }
 
+    /**
+     * Doubles the closing quote character inside the name, see SQL\Compiler::quoteIdentifier().
+     */
     protected function wrap(string $name): string
     {
-        return sprintf($this->wrapper, $name);
+        $close = substr($this->wrapper, -1);
+
+        return sprintf($this->wrapper, str_replace($close, $close . $close, $name));
     }
 
     /**

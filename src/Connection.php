@@ -223,6 +223,7 @@ class Connection
      * Adds a command executed right after connecting (e.g. SET NAMES).
      *
      * @param list<mixed> $params
+     * @psalm-taint-sink sql $query
      */
     public function initCommand(string $query, array $params = []): static
     {
@@ -380,6 +381,7 @@ class Connection
      * @return ResultSet<mixed>
      *
      * @throws PDOException
+     * @psalm-taint-sink sql $sql
      */
     public function query(string $sql, array $params = []): ResultSet
     {
@@ -390,6 +392,7 @@ class Connection
      * @param list<mixed> $params
      *
      * @throws PDOException
+     * @psalm-taint-sink sql $sql
      */
     public function command(string $sql, array $params = []): bool
     {
@@ -408,6 +411,7 @@ class Connection
      * @return ResultSet<mixed>
      *
      * @throws PDOException
+     * @psalm-taint-sink sql $sql
      */
     public function stream(string $sql, array $params = []): ResultSet
     {
@@ -436,6 +440,7 @@ class Connection
      * @param list<mixed> $params
      *
      * @throws PDOException
+     * @psalm-taint-sink sql $sql
      */
     public function count(string $sql, array $params = []): int
     {
@@ -452,6 +457,7 @@ class Connection
      * @param list<mixed> $params
      *
      * @throws PDOException
+     * @psalm-taint-sink sql $sql
      */
     public function column(string $sql, array $params = []): mixed
     {

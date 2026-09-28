@@ -80,6 +80,7 @@ use function json_encode;
 use function sprintf;
 use function str_replace;
 use function strtoupper;
+use function substr;
 
 /**
  * Generic ANSI-ish SQL compiler; dialects override the parts that differ.
@@ -253,10 +254,21 @@ class Compiler
 
         $wrapped = [];
         foreach (explode('.', $value) as $segment) {
-            $wrapped[] = $segment === '*' ? $segment : sprintf($this->wrapper, $segment);
+            $wrapped[] = $segment === '*' ? $segment : $this->quoteIdentifier($segment);
         }
 
         return implode('.', $wrapped);
+    }
+
+    /**
+     * Quotes one name, doubling the closing quote character inside it (`a``b`, "a""b", [a]]b]),
+     * so a name taken from input cannot end the identifier and inject SQL.
+     */
+    protected function quoteIdentifier(string $name): string
+    {
+        $close = substr($this->wrapper, -1);
+
+        return sprintf($this->wrapper, str_replace($close, $close . $close, $name));
     }
 
     /**

@@ -81,4 +81,12 @@ class OrderTest extends BaseClass
         })->select());
         $this->assertEquals($expected, $actual);
     }
+
+    public function testIdentifierQuotesAreEscaped(): void
+    {
+        $this->assertEquals(
+            'SELECT * FROM "users" WHERE "a""b" = 1 ORDER BY "name"" DESC, (SELECT 1) --" ASC',
+            $this->sql(fn () => $this->db->from('users')->where('a"b')->is(1)->orderBy('name" DESC, (SELECT 1) --')->select()),
+        );
+    }
 }

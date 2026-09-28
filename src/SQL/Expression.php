@@ -100,6 +100,11 @@ class Expression
         return $this->addExpression(new ColumnPart($value));
     }
 
+    /**
+     * Raw SQL text, never escaped: do not pass user input.
+     *
+     * @psalm-taint-sink sql $value
+     */
     public function op(string $value): static
     {
         return $this->addExpression(new OperatorPart($value));

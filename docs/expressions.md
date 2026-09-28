@@ -89,6 +89,26 @@ Expression::fromCall('NOW');                   // NOW()
 Expression::fromClosure(fn (Expression $e) => $e->column('a')->op('*')->value(2));
 ```
 
+## Security
+
+Values passed to `value()`, `is()`, `in()`, `set()`, `insert()` and the other builder methods are
+always bound parameters. Identifiers (table, column and alias names) are quoted, and a quote
+character inside a name is doubled, so `orderBy($_GET['sort'])` cannot inject SQL: an unknown
+name only fails with "unknown column". Still validate such names against an allow-list, because
+any existing column could otherwise be used.
+
+`op()` and the raw `Connection` methods (`query()`, `command()`, `count()`, `column()`,
+`stream()`, `initCommand()`) take SQL text as is. They are declared as Psalm taint sinks, so
+running Psalm with `--taint-analysis` on an application reports user input that reaches them:
+
+```sh
+vendor/bin/psalm --taint-analysis
+```
+```
+ERROR: TaintedSql - app/models/Report.php:42 - Detected tainted SQL
+  $_GET['b'] ... call to Noirapi\Database\SQL\Expression::op
+```
+
 ## Built-in functions
 
 These compile to the right function for each database:
