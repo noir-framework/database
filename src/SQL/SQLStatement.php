@@ -50,6 +50,7 @@ use Noirapi\Database\SQL\Clause\WhereNull;
 
 use function array_keys;
 use function array_map;
+use function array_slice;
 use function array_values;
 use function in_array;
 use function is_array;
@@ -557,6 +558,20 @@ class SQLStatement
     public function getInsertRows(): array
     {
         return [$this->values, ...$this->rows];
+    }
+
+    /**
+     * A copy holding only the given INSERT rows (used to split large multi-row inserts).
+     *
+     * @param non-empty-list<list<mixed>> $rows
+     */
+    public function withInsertRows(array $rows): static
+    {
+        $copy = clone $this;
+        $copy->values = $rows[0];
+        $copy->rows = array_slice($rows, 1);
+
+        return $copy;
     }
 
     /**

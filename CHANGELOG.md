@@ -6,6 +6,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- `insertMany()` batches that exceed the database's bound-parameter limit (65,535 on MySQL and
+  PostgreSQL, 2,100 on SQL Server, 999 on SQLite) are split into several statements run in one
+  transaction; `SQL\Compiler::getMaxParams()`
 ### Changed
 
 ### Fixed

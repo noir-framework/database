@@ -36,6 +36,9 @@ use Override;
  */
 class PostgreSQL extends Compiler
 {
+    /** The wire protocol counts parameters in 16 bits. */
+    protected int $maxParams = 65535;
+
     #[Override]
     protected function sqlFunctionUCASE(SqlFunction $func): string
     {

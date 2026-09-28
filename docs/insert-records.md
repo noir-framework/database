@@ -47,9 +47,12 @@ into NULL silently.
 `insert()`, whose columns the extra rows then follow. Calling `insert()` after
 `insertMany()` throws a `LogicException`.
 
-For very large imports, split the rows into batches (a few hundred to a few thousand per
-statement): databases limit the statement size and the number of bound parameters (MySQL:
-65,535 placeholders; SQL Server: 2,100).
+Databases limit how many values one statement can bind: 65,535 on MySQL and PostgreSQL,
+2,100 on SQL Server, 999 on older SQLite. When a batch exceeds the limit, `into()` splits it
+into several statements and runs them in one transaction, so either every row is inserted or
+none is. Inside a transaction you opened, the statements join it. MySQL's
+`max_allowed_packet` still limits the size of one statement, so for very wide rows split huge
+imports yourself.
 
 ## Upserts: insert or update on duplicate keys
 

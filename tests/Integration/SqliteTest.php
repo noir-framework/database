@@ -393,4 +393,35 @@ final class SqliteTest extends TestCase
         $this->assertSame(0, $this->db->from('users')->where('id')->in([])->count());
         $this->assertSame(3, $this->db->from('users')->where('id')->notIn([])->count());
     }
+
+    public function testInsertManySplitsLargeBatches(): void
+    {
+        $connection = $this->db->getConnection();
+        $connection->logQueries();
+        $rows = array_map(static fn (int $i): array => ['name' => 'bulk' . $i, 'age' => $i], range(1, 700));
+
+        $this->assertTrue($this->db->insertMany($rows)->into('users'));
+
+        $this->assertSame(700, $this->db->from('users')->where('name')->like('bulk%')->count());
+        $inserts = array_filter($connection->getLog(), static fn (array $e): bool => str_starts_with($e['query'], 'INSERT'));
+        $this->assertCount(2, $inserts); // 1400 values > 999 per statement on SQLite
+
+        // a failing later chunk rolls back the earlier ones
+        $rows = array_map(static fn (int $i): array => ['id' => 1000 + $i, 'name' => 'dup'], range(1, 699));
+        $rows[] = ['id' => 1, 'name' => 'dup'];
+        try {
+            $this->db->insertMany($rows)->into('users');
+            $this->fail('The duplicate key must fail the insert');
+        } catch (\PDOException) {
+            $this->assertSame(0, $this->db->from('users')->where('name')->is('dup')->count());
+            $this->assertFalse($connection->getPDO()->inTransaction());
+        }
+
+        // inside the caller's transaction, the chunks join it
+        $this->db->transaction(function (Database $db): void {
+            $db->insertMany(array_map(static fn (int $i): array => ['name' => 'tx' . $i, 'age' => $i], range(1, 600)))->into('users');
+            $this->assertTrue($db->getConnection()->getPDO()->inTransaction());
+        });
+        $this->assertSame(600, $this->db->from('users')->where('name')->like('tx%')->count());
+    }
 }

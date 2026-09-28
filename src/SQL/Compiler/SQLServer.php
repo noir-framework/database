@@ -50,6 +50,9 @@ class SQLServer extends Compiler
 
     protected string $wrapper = '[%s]';
 
+    /** The RPC limit of SQL Server. */
+    protected int $maxParams = 2100;
+
     /**
      * Emulates LIMIT with TOP, and LIMIT + OFFSET with ROW_NUMBER().
      */

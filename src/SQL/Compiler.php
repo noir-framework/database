@@ -99,6 +99,9 @@ class Compiler
     /** @var list<mixed> */
     protected array $params = [];
 
+    /** Most bound parameters one statement may carry (SQLite before 3.32 allows 999). */
+    protected int $maxParams = 999;
+
     /** @var (Closure(string): string)|null Set while compiling with inlined literals */
     protected ?Closure $quoter = null;
 
@@ -173,6 +176,11 @@ class Compiler
         $sql .= $this->handleWheres($delete->getWheres());
 
         return $sql;
+    }
+
+    public function getMaxParams(): int
+    {
+        return $this->maxParams;
     }
 
     public function getDateFormat(): string

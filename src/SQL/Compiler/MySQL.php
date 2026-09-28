@@ -34,6 +34,9 @@ class MySQL extends Compiler
 {
     protected string $wrapper = '`%s`';
 
+    /** Placeholders are counted in 16 bits. */
+    protected int $maxParams = 65535;
+
     /**
      * Kept from opis/database for output compatibility: MySQL's ROUND() is emitted as FORMAT().
      */
