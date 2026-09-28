@@ -15,11 +15,11 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\SQL;
+namespace Noirapi\Database\SQL;
 
 use Closure;
-use Opis\Database\Connection;
-use Opis\Database\ResultSet;
+use Noirapi\Database\Connection;
+use Noirapi\Database\ResultSet;
 
 class Select extends SelectStatement
 {

@@ -15,9 +15,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Schema\Compiler;
+namespace Noirapi\Database\Schema\Compiler;
 
-use Opis\Database\Schema\{
+use Noirapi\Database\Schema\{
     Compiler, BaseColumn, AlterTable, CreateTable
 };
 

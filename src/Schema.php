@@ -15,14 +15,14 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database;
+namespace Noirapi\Database;
 
-use Opis\Database\Schema\CreateTable;
-use Opis\Database\Schema\AlterTable;
+use Noirapi\Database\Schema\CreateTable;
+use Noirapi\Database\Schema\AlterTable;
 
 class Schema
 {
-    /** @var    \Opis\Database\Connection   Connection. */
+    /** @var    \Noirapi\Database\Connection   Connection. */
     protected $connection;
 
     /** @var    array   Table list. */
@@ -37,7 +37,7 @@ class Schema
     /**
      * Constructor
      *
-     * @param   \Opis\Database\Connection $connection Connection.
+     * @param   \Noirapi\Database\Connection $connection Connection.
      */
     public function __construct(Connection $connection)
     {

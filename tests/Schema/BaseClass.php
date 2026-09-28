@@ -15,12 +15,12 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Test\Schema;
+namespace Noirapi\Database\Test\Schema;
 
-use Opis\Database\Schema\AlterTable;
-use Opis\Database\Schema\CreateTable;
-use Opis\Database\Test\Connection;
-use Opis\Database\Test\Schema;
+use Noirapi\Database\Schema\AlterTable;
+use Noirapi\Database\Schema\CreateTable;
+use Noirapi\Database\Test\Connection;
+use Noirapi\Database\Test\Schema;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Yaml\Yaml;
 

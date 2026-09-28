@@ -15,11 +15,12 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database;
+namespace Noirapi\Database;
 
 use PDO;
 use PDOStatement;
 use PDOException;
+use RuntimeException;
 use Serializable;
 
 class Connection implements Serializable
@@ -298,43 +299,24 @@ class Connection implements Serializable
         return $this->pdo;
     }
 
+    /** Driver names whose dialects were removed in 5.0. */
+    private const array REMOVED_DRIVERS = ['oci', 'oracle', 'firebird', 'db2', 'ibm', 'odbc', 'nuodb'];
+
     /**
      * Returns an instance of the compiler associated with this connection
      *
-     * @return  SQL\Compiler
+     * @throws RuntimeException When the driver's dialect is no longer supported
      */
     public function getCompiler(): SQL\Compiler
     {
         if ($this->compiler === null) {
-            switch ($this->getDriver()) {
-                case 'mysql':
-                    $this->compiler = new SQL\Compiler\MySQL();
-                    break;
-                case 'dblib':
-                case 'mssql':
-                case 'sqlsrv':
-                case 'sybase':
-                    $this->compiler = new SQL\Compiler\SQLServer();
-                    break;
-                case 'oci':
-                case 'oracle':
-                    $this->compiler = new SQL\Compiler\Oracle();
-                    break;
-                case 'firebird':
-                    $this->compiler = new SQL\Compiler\Firebird();
-                    break;
-                case 'db2':
-                case 'ibm':
-                case 'odbc':
-                    $this->compiler = new SQL\Compiler\DB2();
-                    break;
-                case 'nuodb':
-                    $this->compiler = new SQL\Compiler\NuoDB();
-                    break;
-                default:
-                    $this->compiler = new SQL\Compiler();
-            }
-
+            $driver = $this->getDriver();
+            $this->assertDriverSupported($driver);
+            $this->compiler = match ($driver) {
+                'mysql' => new SQL\Compiler\MySQL(),
+                'dblib', 'mssql', 'sqlsrv', 'sybase' => new SQL\Compiler\SQLServer(),
+                default => new SQL\Compiler(),
+            };
             $this->compiler->setOptions($this->compilerOptions);
         }
 
@@ -344,41 +326,34 @@ class Connection implements Serializable
     /**
      * Returns an instance of the schema compiler associated with this connection
      *
-     * @throws  \Exception
-     *
-     * @return  Schema\Compiler
+     * @throws RuntimeException When the driver has no schema compiler
      */
     public function schemaCompiler(): Schema\Compiler
     {
         if ($this->schemaCompiler === null) {
-            switch ($this->getDriver()) {
-                case 'mysql':
-                    $this->schemaCompiler = new Schema\Compiler\MySQL($this);
-                    break;
-                case 'pgsql':
-                    $this->schemaCompiler = new Schema\Compiler\PostgreSQL($this);
-                    break;
-                case 'dblib':
-                case 'mssql':
-                case 'sqlsrv':
-                case 'sybase':
-                    $this->schemaCompiler = new Schema\Compiler\SQLServer($this);
-                    break;
-                case 'sqlite':
-                    $this->schemaCompiler = new Schema\Compiler\SQLite($this);
-                    break;
-                case 'oci':
-                case 'oracle':
-                    $this->schemaCompiler = new Schema\Compiler\Oracle($this);
-                    break;
-                default:
-                    throw new \Exception('Schema not supported yet');
-            }
-
+            $driver = $this->getDriver();
+            $this->assertDriverSupported($driver);
+            $this->schemaCompiler = match ($driver) {
+                'mysql' => new Schema\Compiler\MySQL($this),
+                'pgsql' => new Schema\Compiler\PostgreSQL($this),
+                'dblib', 'mssql', 'sqlsrv', 'sybase' => new Schema\Compiler\SQLServer($this),
+                'sqlite' => new Schema\Compiler\SQLite($this),
+                default => throw new RuntimeException('Schema not supported for driver: ' . $driver),
+            };
             $this->schemaCompiler->setOptions($this->schemaCompilerOptions);
         }
 
         return $this->schemaCompiler;
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    private function assertDriverSupported(string $driver): void
+    {
+        if (in_array($driver, self::REMOVED_DRIVERS, true)) {
+            throw new RuntimeException('Driver "' . $driver . '" is not supported since noirapi/database 5.0');
+        }
     }
 
     /**

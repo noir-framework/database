@@ -15,13 +15,13 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Test\SQL;
+namespace Noirapi\Database\Test\SQL;
 
-use Opis\Database\SQL\ColumnExpression;
-use Opis\Database\SQL\Expression;
-use Opis\Database\SQL\HavingExpression;
-use Opis\Database\SQL\HavingStatement;
-use Opis\Database\SQL\Join;
+use Noirapi\Database\SQL\ColumnExpression;
+use Noirapi\Database\SQL\Expression;
+use Noirapi\Database\SQL\HavingExpression;
+use Noirapi\Database\SQL\HavingStatement;
+use Noirapi\Database\SQL\Join;
 
 class HavingTest extends BaseClass
 {

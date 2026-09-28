@@ -15,7 +15,7 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\SQL;
+namespace Noirapi\Database\SQL;
 
 class UpdateStatement extends BaseStatement
 {

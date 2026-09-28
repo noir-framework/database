@@ -15,7 +15,7 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Test\SQL;
+namespace Noirapi\Database\Test\SQL;
 
 class LimitTest extends BaseClass
 {

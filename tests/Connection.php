@@ -15,9 +15,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Test;
+namespace Noirapi\Database\Test;
 
-class Connection extends \Opis\Database\Connection
+class Connection extends \Noirapi\Database\Connection
 {
     private string $lastSql = '';
 

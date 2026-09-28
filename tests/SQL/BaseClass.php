@@ -15,10 +15,10 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Test\SQL;
+namespace Noirapi\Database\Test\SQL;
 
-use Opis\Database\Database;
-use Opis\Database\Test\Connection;
+use Noirapi\Database\Database;
+use Noirapi\Database\Test\Connection;
 use PHPUnit\Framework\TestCase;
 
 class BaseClass extends TestCase

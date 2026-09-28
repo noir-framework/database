@@ -15,12 +15,12 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database;
+namespace Noirapi\Database;
 
-use Opis\Database\SQL\InsertStatement;
-use Opis\Database\SQL\Query as QueryCommand;
-use Opis\Database\SQL\Insert as InsertCommand;
-use Opis\Database\SQL\Update as UpdateCommand;
+use Noirapi\Database\SQL\InsertStatement;
+use Noirapi\Database\SQL\Query as QueryCommand;
+use Noirapi\Database\SQL\Insert as InsertCommand;
+use Noirapi\Database\SQL\Update as UpdateCommand;
 
 class Database
 {

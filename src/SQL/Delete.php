@@ -15,9 +15,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\SQL;
+namespace Noirapi\Database\SQL;
 
-use Opis\Database\Connection;
+use Noirapi\Database\Connection;
 
 class Delete extends DeleteStatement
 {

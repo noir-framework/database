@@ -15,9 +15,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\SQL\Compiler;
+namespace Noirapi\Database\SQL\Compiler;
 
-use Opis\Database\SQL\Compiler;
+use Noirapi\Database\SQL\Compiler;
 
 class MySQL extends Compiler
 {

@@ -15,7 +15,7 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Test\Schema;
+namespace Noirapi\Database\Test\Schema;
 
 class MySqlTest extends BaseClass
 {

@@ -15,7 +15,7 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Schema;
+namespace Noirapi\Database\Schema;
 
 class AlterColumn extends BaseColumn
 {

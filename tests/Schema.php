@@ -15,11 +15,11 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Test;
+namespace Noirapi\Database\Test;
 
-use Opis\Database\Schema\CreateTable;
-use Opis\Database\Schema as BaseSchema;
-use Opis\Database\Schema\AlterTable;
+use Noirapi\Database\Schema\CreateTable;
+use Noirapi\Database\Schema as BaseSchema;
+use Noirapi\Database\Schema\AlterTable;
 
 class Schema extends BaseSchema
 {

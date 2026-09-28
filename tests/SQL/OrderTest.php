@@ -15,9 +15,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Test\SQL;
+namespace Noirapi\Database\Test\SQL;
 
-use Opis\Database\SQL\Expression;
+use Noirapi\Database\SQL\Expression;
 
 class OrderTest extends BaseClass
 {

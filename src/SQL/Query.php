@@ -15,10 +15,10 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\SQL;
+namespace Noirapi\Database\SQL;
 
 use Closure;
-use Opis\Database\Connection;
+use Noirapi\Database\Connection;
 
 class Query extends BaseStatement
 {
@@ -156,7 +156,7 @@ class Query extends BaseStatement
     /**
      * @param   array $columns (optional)
      *
-     * @return  \Opis\Database\ResultSet
+     * @return  \Noirapi\Database\ResultSet
      */
     public function select($columns = [])
     {

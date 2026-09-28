@@ -15,7 +15,7 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database;
+namespace Noirapi\Database;
 
 use PDO;
 use Closure;

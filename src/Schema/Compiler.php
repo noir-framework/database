@@ -15,9 +15,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Schema;
+namespace Noirapi\Database\Schema;
 
-use Opis\Database\Connection;
+use Noirapi\Database\Connection;
 
 class Compiler
 {

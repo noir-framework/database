@@ -15,10 +15,10 @@
  * limitations under the License.
  * ============================================================================ */
 
-namespace Opis\Database\Test\SQL;
+namespace Noirapi\Database\Test\SQL;
 
-use Opis\Database\SQL\Expression;
-use Opis\Database\SQL\Join;
+use Noirapi\Database\SQL\Expression;
+use Noirapi\Database\SQL\Join;
 
 class JoinTest extends BaseClass
 {

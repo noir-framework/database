@@ -40,12 +40,15 @@
     },
     "autoload": {
         "psr-4": {
-            "Opis\\Database\\": "src/"
-        }
+            "Noirapi\\Database\\": "src/"
+        },
+        "files": [
+            "opis-aliases.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
-            "Opis\\Database\\Test\\": "tests/"
+            "Noirapi\\Database\\Test\\": "tests/"
         }
     },
     "scripts": {
