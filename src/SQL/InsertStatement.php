@@ -16,7 +16,11 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\SQL;
+declare(strict_types=1);
+
+namespace Noirapi\Database\SQL;
+
+use function array_keys;
 
 /**
  * Connection-less INSERT builder.
@@ -41,13 +45,13 @@ class InsertStatement
     }
 
     /**
-     * @param array<string, mixed> $values column => value
+     * @param array<array-key, mixed> $values column => value
      */
     public function insert(array $values): static
     {
-        foreach ($values as $column => $value) {
-            $this->sql->addColumn($column);
-            $this->sql->addValue($value);
+        foreach (array_keys($values) as $column) {
+            $this->sql->addColumn((string) $column);
+            $this->sql->addValue($values[$column]);
         }
 
         return $this;

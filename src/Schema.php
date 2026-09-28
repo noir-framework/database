@@ -17,6 +17,7 @@
  * ============================================================================ */
 
 declare(strict_types=1);
+
 namespace Noirapi\Database;
 
 use Noirapi\Database\Schema\AlterTable;
@@ -57,12 +58,9 @@ class Schema
     {
         if ($this->currentDatabase === null) {
             $result = $this->connection->schemaCompiler()->currentDatabase((string) $this->connection->getDSN());
-            if (isset($result['result'])) {
-                $this->currentDatabase = $result['result'];
-            } else {
-                $name = $this->connection->column($result['sql'], $result['params']);
-                $this->currentDatabase = is_scalar($name) ? (string) $name : '';
-            }
+            $this->currentDatabase = is_string($result)
+                ? $result
+                : self::toString($this->connection->column($result['sql'], $result['params']));
         }
 
         return $this->currentDatabase;
@@ -93,7 +91,7 @@ class Schema
 
             $this->tableList = [];
             foreach ($rows as $row) {
-                if (is_string($row[0] ?? null)) {
+                if (isset($row[0]) && is_string($row[0])) {
                     $this->tableList[strtolower($row[0])] = $row[0];
                 }
             }
@@ -123,10 +121,8 @@ class Schema
 
             $columns = [];
             foreach ($rows as $row) {
-                $name = $row['name'] ?? null;
-                $type = $row['type'] ?? null;
-                if (is_string($name) && is_string($type)) {
-                    $columns[$name] = ['name' => $name, 'type' => $type];
+                if (isset($row['name'], $row['type']) && is_string($row['name']) && is_string($row['type'])) {
+                    $columns[$row['name']] = ['name' => $row['name'], 'type' => $row['type']];
                 }
             }
 
@@ -201,5 +197,10 @@ class Schema
     {
         $result = $this->connection->schemaCompiler()->truncate($table);
         $this->connection->command($result['sql'], $result['params']);
+    }
+
+    private static function toString(mixed $value): string
+    {
+        return is_scalar($value) ? (string) $value : '';
     }
 }

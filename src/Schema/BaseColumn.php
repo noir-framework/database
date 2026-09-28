@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\Schema;
+declare(strict_types=1);
+
+namespace Noirapi\Database\Schema;
 
 use function in_array;
 use function is_bool;
@@ -163,22 +165,18 @@ class BaseColumn
 
     public function getDescription(): ?string
     {
-        $value = $this->properties['description'] ?? null;
-
-        return is_string($value) ? $value : null;
+        return isset($this->properties['description']) && is_string($this->properties['description'])
+            ? $this->properties['description']
+            : null;
     }
 
     private function bool(string $name, bool $default): bool
     {
-        $value = $this->properties[$name] ?? null;
-
-        return is_bool($value) ? $value : $default;
+        return isset($this->properties[$name]) && is_bool($this->properties[$name]) ? $this->properties[$name] : $default;
     }
 
     private function int(string $name): ?int
     {
-        $value = $this->properties[$name] ?? null;
-
-        return is_int($value) ? $value : null;
+        return isset($this->properties[$name]) && is_int($this->properties[$name]) ? $this->properties[$name] : null;
     }
 }

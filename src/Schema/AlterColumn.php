@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\Schema;
+declare(strict_types=1);
+
+namespace Noirapi\Database\Schema;
 
 use Override;
 
@@ -42,7 +44,7 @@ class AlterColumn extends BaseColumn
     public function defaultValue(mixed $value): static
     {
         if ($this->get('handleDefault', true) === true) {
-            return parent::defaultValue($value);
+            parent::defaultValue($value);
         }
 
         return $this;

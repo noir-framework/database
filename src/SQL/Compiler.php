@@ -17,6 +17,7 @@
  * ============================================================================ */
 
 declare(strict_types=1);
+
 namespace Noirapi\Database\SQL;
 
 use DateTimeInterface;

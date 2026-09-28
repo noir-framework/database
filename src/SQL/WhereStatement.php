@@ -17,6 +17,7 @@
  * ============================================================================ */
 
 declare(strict_types=1);
+
 namespace Noirapi\Database\SQL;
 
 use Closure;
@@ -141,7 +142,11 @@ class WhereStatement
             return $this;
         }
 
-        return (new Where($this, $this->sql))->init($column, $separator);
+        /** @var Where<$this> $where */
+        $where = new Where($this, $this->sql);
+        $where->init($column, $separator);
+
+        return $where;
     }
 
     /**

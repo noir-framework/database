@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\Schema\Compiler;
+declare(strict_types=1);
+
+namespace Noirapi\Database\Schema\Compiler;
 
 use Noirapi\Database\Schema\AlterCommand;
 use Noirapi\Database\Schema\AlterTable;

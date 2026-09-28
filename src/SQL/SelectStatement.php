@@ -16,9 +16,12 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\SQL;
+declare(strict_types=1);
+
+namespace Noirapi\Database\SQL;
 
 use Closure;
+use Override;
 
 use function is_array;
 
@@ -44,6 +47,7 @@ class SelectStatement extends BaseStatement
         $this->have = new HavingStatement($this->sql);
     }
 
+    #[Override]
     public function __clone()
     {
         parent::__clone();

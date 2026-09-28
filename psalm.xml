@@ -15,4 +15,24 @@
             <directory name="vendor" />
         </ignoreFiles>
     </projectFiles>
+
+    <issueHandlers>
+        <!--
+        The public classes are extension points: dialect compilers extend Compiler, and
+        apps extend Connection / Database (e.g. test doubles, framework wrappers). Making
+        them final would break source compatibility with opis/database.
+        -->
+        <ClassMustBeFinal errorLevel="suppress" />
+
+        <!--
+        The builders are fluent and mutable by design (methods mutate $this and return it).
+        Purity markers inferred by Psalm's alter mode were wrong for them (e.g. options() marked
+        mutation-free) and would make Psalm report UnusedMethodCall on ordinary fluent calls
+        in applications, and constrain every subclass override. The readonly value objects
+        in SQL\Clause and Schema\AlterCommand are immutable by construction.
+        -->
+        <MissingPureAnnotation errorLevel="suppress" />
+        <MissingImmutableAnnotation errorLevel="suppress" />
+        <MissingInterfaceImmutableAnnotation errorLevel="suppress" />
+    </issueHandlers>
 </psalm>

@@ -17,6 +17,7 @@
  * ============================================================================ */
 
 declare(strict_types=1);
+
 namespace Noirapi\Database;
 
 use PDO;
@@ -24,7 +25,7 @@ use PDOException;
 use PDOStatement;
 use RuntimeException;
 
-use function array_key_last;
+use function array_replace;
 use function array_shift;
 use function get_debug_type;
 use function in_array;
@@ -169,9 +170,7 @@ class Connection
      */
     public function options(array $options): static
     {
-        foreach ($options as $name => $value) {
-            $this->option($name, $value);
-        }
+        $this->options = array_replace($this->options, $options);
 
         return $this;
     }
@@ -347,10 +346,12 @@ class Connection
     {
         $prepared = $this->prepare($sql, $params);
         $this->execute($prepared);
-        $result = $prepared['statement']->fetchColumn();
-        $prepared['statement']->closeCursor();
 
-        return $result;
+        try {
+            return $prepared['statement']->fetchColumn();
+        } finally {
+            $prepared['statement']->closeCursor();
+        }
     }
 
     /**
@@ -368,27 +369,26 @@ class Connection
      */
     public function transaction(callable $callback, mixed $that = null, mixed $default = null): mixed
     {
-        $that ??= $this;
         $pdo = $this->getPDO();
 
         if ($pdo->inTransaction()) {
-            return $callback($that);
+            return $callback($that ?? $this);
         }
-
-        $result = $default;
 
         try {
             $pdo->beginTransaction();
-            $result = $callback($that);
+            $result = $callback($that ?? $this);
             $pdo->commit();
+
+            return $result;
         } catch (PDOException $exception) {
             $pdo->rollBack();
             if ($this->throwTransactionExceptions) {
                 throw $exception;
             }
-        }
 
-        return $result;
+            return $default;
+        }
     }
 
     /**
@@ -401,6 +401,7 @@ class Connection
         $compiler = $this->getCompiler();
 
         return preg_replace_callback('/\?/', static function () use (&$params, $compiler): string {
+            /** @var mixed $param */
             $param = array_shift($params);
 
             return match (true) {
@@ -444,30 +445,27 @@ class Connection
     protected function execute(array $prepared): bool
     {
         $start = microtime(true);
-        $logIndex = null;
-        if ($this->logQueries) {
-            $this->log[] = ['query' => $this->replaceParams($prepared['query'], $prepared['params'])];
-            $logIndex = array_key_last($this->log);
-        }
 
         try {
             if ($prepared['params'] !== []) {
                 $this->bindValues($prepared['statement'], $prepared['params']);
             }
-            $result = $prepared['statement']->execute();
+
+            return $prepared['statement']->execute();
         } catch (PDOException $e) {
             throw new PDOException(
                 $e->getMessage() . ' [ ' . $this->replaceParams($prepared['query'], $prepared['params']) . ' ] ',
                 (int) $e->getCode(),
                 $e->getPrevious(),
             );
+        } finally {
+            if ($this->logQueries) {
+                $this->log[] = [
+                    'query' => $this->replaceParams($prepared['query'], $prepared['params']),
+                    'time' => microtime(true) - $start,
+                ];
+            }
         }
-
-        if ($logIndex !== null) {
-            $this->log[$logIndex]['time'] = microtime(true) - $start;
-        }
-
-        return $result;
     }
 
     /**
@@ -475,6 +473,7 @@ class Connection
      */
     protected function bindValues(PDOStatement $statement, array $values): void
     {
+        /** @var mixed $value */
         foreach ($values as $key => $value) {
             $type = match (true) {
                 $value === null => PDO::PARAM_NULL,

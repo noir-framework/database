@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\Schema;
+declare(strict_types=1);
+
+namespace Noirapi\Database\Schema;
 
 use InvalidArgumentException;
 use Noirapi\Database\Connection;
@@ -90,9 +92,11 @@ class Compiler
     }
 
     /**
-     * @return array{result: string}|Command
+     * Returns the current database name directly, or the query that selects it.
+     *
+     * @return string|Command
      */
-    public function currentDatabase(string $dsn): array
+    public function currentDatabase(string $dsn): string|array
     {
         return ['sql' => 'SELECT database()', 'params' => []];
     }
@@ -359,9 +363,7 @@ class Compiler
 
     protected function handleModifierDefault(BaseColumn $column): string
     {
-        $default = $column->getDefault();
-
-        return $default === null ? '' : 'DEFAULT ' . $this->value($default);
+        return $column->getDefault() === null ? '' : 'DEFAULT ' . $this->value($column->getDefault());
     }
 
     protected function handleModifierAutoincrement(BaseColumn $column): string

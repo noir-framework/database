@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\Schema\Compiler;
+declare(strict_types=1);
+
+namespace Noirapi\Database\Schema\Compiler;
 
 use Noirapi\Database\Schema\AlterCommand;
 use Noirapi\Database\Schema\AlterTable;
@@ -27,6 +29,7 @@ use Override;
 
 class PostgreSQL extends Compiler
 {
+    /** @var list<'unsigned'|'nullable'|'default'|'autoincrement'> */
     protected array $modifiers = ['nullable', 'default'];
 
     #[Override]
@@ -42,7 +45,7 @@ class PostgreSQL extends Compiler
     }
 
     #[Override]
-    public function currentDatabase(string $dsn): array
+    public function currentDatabase(string $dsn): string|array
     {
         return ['sql' => 'SELECT current_schema()', 'params' => []];
     }

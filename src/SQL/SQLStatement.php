@@ -17,6 +17,7 @@
  * ============================================================================ */
 
 declare(strict_types=1);
+
 namespace Noirapi\Database\SQL;
 
 use Closure;
@@ -40,6 +41,7 @@ use Noirapi\Database\SQL\Clause\WhereNested;
 use Noirapi\Database\SQL\Clause\WhereNop;
 use Noirapi\Database\SQL\Clause\WhereNull;
 
+use function array_keys;
 use function array_map;
 use function array_values;
 use function in_array;
@@ -289,12 +291,12 @@ class SQLStatement
     }
 
     /**
-     * @param array<string, mixed> $columns column => value
+     * @param array<array-key, mixed> $columns column => value
      */
     public function addUpdateColumns(array $columns): void
     {
-        foreach ($columns as $column => $value) {
-            $this->updateColumns[] = new UpdateColumn((string) $column, $this->valueToExpression($value));
+        foreach (array_keys($columns) as $column) {
+            $this->updateColumns[] = new UpdateColumn((string) $column, $this->valueToExpression($columns[$column]));
         }
     }
 

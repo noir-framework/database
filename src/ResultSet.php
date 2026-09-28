@@ -17,6 +17,7 @@
  * ============================================================================ */
 
 declare(strict_types=1);
+
 namespace Noirapi\Database;
 
 use Closure;
@@ -31,6 +32,12 @@ use PDOStatement;
  */
 class ResultSet
 {
+    private const int FETCH_FUNC = PDO::FETCH_FUNC;
+
+    private const int FETCH_GROUP = PDO::FETCH_GROUP;
+
+    private const int FETCH_GROUP_UNIQUE = PDO::FETCH_GROUP | PDO::FETCH_UNIQUE;
+
     public function __construct(protected PDOStatement $statement)
     {
     }
@@ -59,7 +66,7 @@ class ResultSet
             return $this->statement->fetchAll($fetchStyle);
         }
 
-        return $this->statement->fetchAll($fetchStyle | PDO::FETCH_FUNC, $callable);
+        return $this->statement->fetchAll($this->withFunc($fetchStyle), $callable);
     }
 
     /**
@@ -69,35 +76,41 @@ class ResultSet
      */
     public function allGroup(bool $uniq = false, ?callable $callable = null): array
     {
-        $fetchStyle = PDO::FETCH_GROUP | ($uniq ? PDO::FETCH_UNIQUE : 0);
+        $fetchStyle = $uniq ? self::FETCH_GROUP_UNIQUE : self::FETCH_GROUP;
 
         if ($callable === null) {
             return $this->statement->fetchAll($fetchStyle);
         }
 
-        return $this->statement->fetchAll($fetchStyle | PDO::FETCH_FUNC, $callable);
+        return $this->statement->fetchAll($this->withFunc($fetchStyle), $callable);
     }
 
     /**
      * Fetches the first row and closes the cursor; false when there are no rows.
      *
-     * @param callable|null $callable Called with the row's columns as arguments
+     * @template TResult
      *
-     * @return ($callable is null ? TRow|false : mixed)
+     * @param (callable(mixed...): TResult)|null $callable Called with the row's columns as named arguments
+     *
+     * @return ($callable is null ? TRow|false : TResult|false)
      */
     public function first(?callable $callable = null): mixed
     {
-        if ($callable === null) {
-            $result = $this->statement->fetch();
+        try {
+            if ($callable === null) {
+                /** @var TRow|false $row */
+                $row = $this->statement->fetch();
+
+                return $row;
+            }
+
+            /** @var array<string, mixed>|false $assoc */
+            $assoc = $this->statement->fetch(PDO::FETCH_ASSOC);
+
+            return $assoc === false ? false : $callable(...$assoc);
+        } finally {
             $this->statement->closeCursor();
-
-            return $result;
         }
-
-        $result = $this->statement->fetch(PDO::FETCH_ASSOC);
-        $this->statement->closeCursor();
-
-        return $result === false ? false : $callable(...$result);
     }
 
     /**
@@ -105,7 +118,10 @@ class ResultSet
      */
     public function next(): mixed
     {
-        return $this->statement->fetch();
+        /** @var TRow|false $row */
+        $row = $this->statement->fetch();
+
+        return $row;
     }
 
     public function flush(): bool
@@ -222,6 +238,14 @@ class ResultSet
         $func($this->statement);
 
         return $this;
+    }
+
+    /**
+     * Adds PDO::FETCH_FUNC to a fetch style.
+     */
+    private function withFunc(int $fetchStyle): int
+    {
+        return $fetchStyle | self::FETCH_FUNC;
     }
 
     /**

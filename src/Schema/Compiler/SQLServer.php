@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\Schema\Compiler;
+declare(strict_types=1);
+
+namespace Noirapi\Database\Schema\Compiler;
 
 use Noirapi\Database\Schema\AlterCommand;
 use Noirapi\Database\Schema\AlterTable;
@@ -29,6 +31,7 @@ class SQLServer extends Compiler
 {
     protected string $wrapper = '[%s]';
 
+    /** @var list<'unsigned'|'nullable'|'default'|'autoincrement'> */
     protected array $modifiers = ['nullable', 'default', 'autoincrement'];
 
     protected string $autoincrement = 'IDENTITY';
@@ -40,7 +43,7 @@ class SQLServer extends Compiler
     }
 
     #[Override]
-    public function currentDatabase(string $dsn): array
+    public function currentDatabase(string $dsn): string|array
     {
         return ['sql' => 'SELECT SCHEMA_NAME()', 'params' => []];
     }

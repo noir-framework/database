@@ -17,6 +17,7 @@
  * ============================================================================ */
 
 declare(strict_types=1);
+
 namespace Noirapi\Database\SQL;
 
 use Closure;
@@ -49,7 +50,7 @@ class Join
      * `on($expression, true)` adds a raw expression.
      *
      * @param string|Expression|Closure $column1
-     * @param string|Expression|Closure|true|null $column2
+     * @param string|Expression|(Closure(Expression): mixed)|true|null $column2
      */
     public function on(
         string|Expression|Closure $column1,
@@ -61,7 +62,7 @@ class Join
 
     /**
      * @param string|Expression|Closure $column1
-     * @param string|Expression|Closure|true|null $column2
+     * @param string|Expression|(Closure(Expression): mixed)|true|null $column2
      */
     public function andOn(
         string|Expression|Closure $column1,
@@ -73,7 +74,7 @@ class Join
 
     /**
      * @param string|Expression|Closure $column1
-     * @param string|Expression|Closure|true|null $column2
+     * @param string|Expression|(Closure(Expression): mixed)|true|null $column2
      */
     public function orOn(
         string|Expression|Closure $column1,
@@ -99,7 +100,7 @@ class Join
 
     /**
      * @param string|Expression|Closure $column1
-     * @param string|Expression|Closure|bool|null $column2
+     * @param string|Expression|(Closure(Expression): mixed)|bool|null $column2
      */
     protected function addJoinCondition(
         string|Expression|Closure $column1,
@@ -108,16 +109,18 @@ class Join
         string $separator = 'AND',
     ): static {
         if ($column1 instanceof Closure) {
-            if ($column2 === true) {
-                return $this->addJoinExpression($column1, $separator);
-            }
-
             if ($column2 === null) {
+                /** @var Closure(Join): mixed $column1 */
                 $join = new self();
                 $column1($join);
                 $this->conditions[] = new JoinNested($join, $separator);
 
                 return $this;
+            }
+
+            /** @var Closure(Expression): mixed $column1 */
+            if ($column2 === true) {
+                return $this->addJoinExpression($column1, $separator);
             }
 
             $column1 = Expression::fromClosure($column1);

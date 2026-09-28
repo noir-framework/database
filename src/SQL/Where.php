@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\SQL;
+declare(strict_types=1);
+
+namespace Noirapi\Database\SQL;
 
 use Closure;
 
@@ -54,7 +56,12 @@ class Where
 
     public function init(string|Expression|Closure $column, string $separator): static
     {
-        $this->column = $column instanceof Closure ? Expression::fromClosure($column) : $column;
+        if ($column instanceof Closure) {
+            /** @var Closure(Expression): mixed $column */
+            $this->column = Expression::fromClosure($column);
+        } else {
+            $this->column = $column;
+        }
         $this->separator = $separator;
 
         return $this;

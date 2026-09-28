@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\SQL;
+declare(strict_types=1);
+
+namespace Noirapi\Database\SQL;
 
 use Closure;
 
@@ -46,7 +48,12 @@ class Having
 
     public function init(string|Expression|Closure $aggregate, string $separator): static
     {
-        $this->aggregate = $aggregate instanceof Closure ? Expression::fromClosure($aggregate) : $aggregate;
+        if ($aggregate instanceof Closure) {
+            /** @var Closure(Expression): mixed $aggregate */
+            $this->aggregate = Expression::fromClosure($aggregate);
+        } else {
+            $this->aggregate = $aggregate;
+        }
         $this->separator = $separator;
 
         return $this;

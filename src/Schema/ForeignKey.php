@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\Schema;
+declare(strict_types=1);
+
+namespace Noirapi\Database\Schema;
 
 use function array_values;
 use function in_array;

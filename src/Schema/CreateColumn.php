@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\Schema;
+declare(strict_types=1);
+
+namespace Noirapi\Database\Schema;
 
 /**
  * A column of a CREATE TABLE; key helpers delegate to the owning table.

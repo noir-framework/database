@@ -16,7 +16,9 @@
  * limitations under the License.
  * ============================================================================ */
 
-declare(strict_types=1);namespace Noirapi\Database\Schema\Compiler;
+declare(strict_types=1);
+
+namespace Noirapi\Database\Schema\Compiler;
 
 use Noirapi\Database\Schema\AlterCommand;
 use Noirapi\Database\Schema\AlterTable;
@@ -30,6 +32,7 @@ use function substr;
 
 class SQLite extends Compiler
 {
+    /** @var list<'unsigned'|'nullable'|'default'|'autoincrement'> */
     protected array $modifiers = ['nullable', 'default', 'autoincrement'];
 
     protected string $autoincrement = 'AUTOINCREMENT';
@@ -41,11 +44,11 @@ class SQLite extends Compiler
      * The database of an SQLite DSN is its file path.
      */
     #[Override]
-    public function currentDatabase(string $dsn): array
+    public function currentDatabase(string $dsn): string
     {
         $colon = strpos($dsn, ':');
 
-        return ['result' => substr($dsn, $colon === false ? 0 : $colon + 1)];
+        return substr($dsn, $colon === false ? 0 : $colon + 1);
     }
 
     #[Override]
