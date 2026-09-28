@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## Unreleased
+
+### Added
+
+### Changed
+
+### Fixed
+
+- `in([])` / `notIn([])` (and the HAVING forms) generated `IN ()`, a syntax error; an empty list
+  now matches nothing (`1 = 0`) or everything (`1 = 1`)
+
 ## v5.0.0-beta3 - 2026-09-28
 
 ### Added

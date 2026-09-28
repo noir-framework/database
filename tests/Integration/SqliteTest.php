@@ -387,4 +387,10 @@ final class SqliteTest extends TestCase
         $this->assertSame('failed', $result);
         $this->assertSame(0, $this->db->from('users')->where('name')->is('Tx')->count());
     }
+
+    public function testEmptyInLists(): void
+    {
+        $this->assertSame(0, $this->db->from('users')->where('id')->in([])->count());
+        $this->assertSame(3, $this->db->from('users')->where('id')->notIn([])->count());
+    }
 }

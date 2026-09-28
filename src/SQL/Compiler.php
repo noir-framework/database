@@ -748,8 +748,15 @@ class Compiler
         return $this->wrap($where->column) . ' ' . $where->operator . ' ' . $this->param($where->value);
     }
 
+    /**
+     * An empty list matches nothing (`IN`) or everything (`NOT IN`); `IN ()` is a syntax error.
+     */
     protected function whereIn(WhereIn $where): string
     {
+        if ($where->values === []) {
+            return $where->not ? '1 = 1' : '1 = 0';
+        }
+
         return $this->wrap($where->column) . ' ' . ($where->not ? 'NOT IN ' : 'IN ')
             . '(' . $this->params($where->values) . ')';
     }
@@ -852,6 +859,10 @@ class Compiler
 
     protected function havingIn(HavingIn $having): string
     {
+        if ($having->values === []) {
+            return $having->not ? '1 = 1' : '1 = 0';
+        }
+
         return $this->wrap($having->aggregate) . ($having->not ? ' NOT IN ' : ' IN ')
             . '(' . $this->params($having->values) . ')';
     }

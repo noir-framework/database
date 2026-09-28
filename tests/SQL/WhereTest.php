@@ -405,4 +405,16 @@ class WhereTest extends BaseClass
         $expression = new Expression();
         $expression->foo = 1; // @phpstan-ignore property.notFound
     }
+
+    public function testWhereInEmptyList(): void
+    {
+        $this->assertEquals(
+            'SELECT * FROM "users" WHERE 1 = 0 AND 1 = 1 OR "age" IN (1)',
+            $this->sql(fn () => $this->db->from('users')
+                ->where('id')->in([])
+                ->andWhere('id')->notIn([])
+                ->orWhere('age')->in([1])
+                ->select()),
+        );
+    }
 }

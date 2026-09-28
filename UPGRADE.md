@@ -75,6 +75,7 @@ needed either: the result is typed as `User|false`.
 | Column names containing `->` | quoted as one identifier | JSON path (`meta->a` reads `$.a`) |
 | Non-PDO exception inside `transaction()` | re-thrown, transaction left open | rolled back, then re-thrown |
 | SQL Server `double()` column | `DOUBLE` (invalid) | `FLOAT(53)` |
+| `in([])` / `notIn([])` | `IN ()` (syntax error) | `1 = 0` / `1 = 1` |
 
 Native parameter types are now declared everywhere. Code that passed unexpected types (for
 example `null` where a string is expected) will get a `TypeError` instead of silently

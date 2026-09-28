@@ -76,6 +76,11 @@ closure building an [expression](expressions.md):
 ->where('updated_at')->lt(fn (Expression $e) => $e->ago(30, Interval::Day))
 ```
 
+### Empty lists
+
+`in([])` matches no rows and `notIn([])` matches every row. They compile to `1 = 0` and
+`1 = 1`, because `IN ()` is a syntax error. Passing a list that may be empty is safe.
+
 ### Sub-queries
 
 `in()` and `notIn()` accept a closure that builds a sub-query:
