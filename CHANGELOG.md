@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- `paginate($page, $perPage, $columns)` on queries returns a `Page` (results, total, `lastPage()`,
+  `hasMore()`); grouped and DISTINCT queries are counted as a sub-query
 - `ResultSet::cast(['col' => 'json'|'int'|'float'|'bool'|'string'|'datetime'|Closure])` converts
   column values while reading; with `fetchClass()` the row is converted before hydration, so
   typed properties work

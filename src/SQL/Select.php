@@ -22,7 +22,9 @@ declare(strict_types=1);
 namespace Noirapi\Database\SQL;
 
 use Closure;
+use InvalidArgumentException;
 use Noirapi\Database\Connection;
+use Noirapi\Database\Page;
 use Noirapi\Database\ResultSet;
 use Override;
 
@@ -71,6 +73,47 @@ class Select extends SelectStatement
         $compiler = $this->connection->getCompiler();
 
         return $this->connection->stream($compiler->select($this->sql), $compiler->getParams());
+    }
+
+    /**
+     * Runs the query for one page and counts all matching rows: `paginate(2, 20)` returns rows
+     * 21-40 and the total. Add an orderBy() so pages are stable. Grouped and DISTINCT queries
+     * are counted as a sub-query.
+     *
+     * @param int $page Starting at 1
+     * @param ColumnArg|array<int|string, ColumnArg>|(Closure(ColumnExpression): mixed) $columns
+     *
+     * @throws InvalidArgumentException When $page or $perPage is below 1
+     */
+    public function paginate(int $page, int $perPage, string|Expression|Closure|array $columns = []): Page
+    {
+        if ($page < 1 || $perPage < 1) {
+            throw new InvalidArgumentException('paginate() needs $page and $perPage of at least 1');
+        }
+
+        $total = (clone $this)->countRows($columns);
+        $this->limit($perPage)->offset(($page - 1) * $perPage);
+
+        return new Page($this->select($columns), $total, $page, $perPage);
+    }
+
+    /**
+     * @param ColumnArg|array<int|string, ColumnArg>|(Closure(ColumnExpression): mixed) $columns
+     */
+    protected function countRows(string|Expression|Closure|array $columns): int
+    {
+        if ($this->sql->getGroupBy() === [] && !$this->sql->getDistinct()) {
+            return $this->count();
+        }
+
+        parent::select($columns);
+        $compiler = $this->connection->getCompiler();
+        $sql = $compiler->select($this->sql->withoutOrder());
+
+        return self::toInt($this->connection->column(
+            'SELECT COUNT(*) FROM (' . $sql . ') AS opis_page',
+            $compiler->getParams(),
+        ));
     }
 
     /**

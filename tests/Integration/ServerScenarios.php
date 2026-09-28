@@ -213,6 +213,35 @@ abstract class ServerScenarios extends TestCase
         $this->assertSame(2, iterator_count($this->db->from('s_users')->stream(['name'])));
     }
 
+    public function testPaginate(): void
+    {
+        $this->db->insertMany(array_map(
+            static fn (int $i): array => ['name' => 'p' . str_pad((string) $i, 2, '0', STR_PAD_LEFT), 'age' => $i % 4],
+            range(1, 23),
+        ))->into('s_users');
+
+        $page = $this->db->from('s_users')->orderBy('name')->paginate(3, 10, ['name']);
+        $this->assertSame([23, 3, 10, 3, false], [$page->total, $page->page, $page->perPage, $page->lastPage(), $page->hasMore()]);
+        $this->assertSame(['p21', 'p22', 'p23'], array_column($page->results->fetchAssoc()->all(), 'name'));
+
+        $page = $this->db->from('s_users')->where('age')->is(0)->orderBy('name')->paginate(1, 2, ['name']);
+        $this->assertSame([5, 3, true], [$page->total, $page->lastPage(), $page->hasMore()]);
+        $this->assertSame(['p04', 'p08'], array_column($page->results->fetchAssoc()->all(), 'name'));
+
+        $grouped = $this->db->from('s_users')->groupBy('age')->orderBy('age')
+            ->paginate(2, 3, fn ($include) => $include->column('age')->count('*', 'n'));
+        $this->assertSame([4, 2], [$grouped->total, $grouped->lastPage()]);
+        // SQL Server offset paging adds an opis_rownum column (kept from opis/database)
+        $rows = array_map(static fn (array $row): array => ['age' => $row['age'], 'n' => $row['n']], $grouped->results->fetchAssoc()->all());
+        $this->assertEquals([['age' => 3, 'n' => 6]], $rows);
+
+        $distinct = $this->db->from('s_users')->distinct()->orderBy('age')->paginate(1, 10, ['age']);
+        $this->assertSame(4, $distinct->total);
+
+        $empty = $this->db->from('s_users')->where('age')->is(99)->orderBy('name')->paginate(1, 10);
+        $this->assertSame([0, 1, false, []], [$empty->total, $empty->lastPage(), $empty->hasMore(), $empty->results->all()]);
+    }
+
     protected static function env(string $name, string $default): string
     {
         $value = getenv($name);

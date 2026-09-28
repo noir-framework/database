@@ -23,6 +23,7 @@ namespace Noirapi\Database\SQL;
 
 use Closure;
 use Noirapi\Database\Connection;
+use Noirapi\Database\Page;
 use Noirapi\Database\ResultSet;
 
 /**
@@ -127,6 +128,17 @@ class Query extends BaseStatement
     public function stream(string|Expression|Closure|array $columns = []): ResultSet
     {
         return $this->buildSelect()->stream($columns);
+    }
+
+    /**
+     * @param int $page Starting at 1
+     * @param ColumnArg|array<int|string, ColumnArg>|(Closure(ColumnExpression): mixed) $columns
+     *
+     * @throws \InvalidArgumentException When $page or $perPage is below 1
+     */
+    public function paginate(int $page, int $perPage, string|Expression|Closure|array $columns = []): Page
+    {
+        return $this->buildSelect()->paginate($page, $perPage, $columns);
     }
 
     /**
