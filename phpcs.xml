@@ -3,6 +3,7 @@
     <description>PSR-12 plus Slevomat type and hygiene sniffs</description>
 
     <file>src</file>
+    <file>rector/src</file>
     <file>tests</file>
     <file>compat</file>
 

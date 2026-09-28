@@ -100,6 +100,36 @@ Full documentation is in [docs/](docs/README.md). Replacements for common hand-b
 | loop of `insert()` | `insertMany($rows)` | [inserting](docs/insert-records.md) |
 | select, then insert or update | `->upsert($keys, $update)` | [inserting](docs/insert-records.md) |
 
+### Automated rewrites with Rector
+
+`rector/set.php` rewrites the two mechanical patterns:
+
+- `where(fn (Expression $e) => $e->column(C)->op('&')->value(M), true)->is(0)` (or `->isNot(0)`),
+  with a closure or an arrow function, `op('&')` or `{'&'}`, becomes `where(C)->hasNoBits(M)`
+  (or `hasAnyBits(M)`). This includes the form without `true` whose closure is typed
+  `Expression`, which throws a `TypeError` at runtime today.
+- `$e->op('FUNC(')->column(X)->op(')')` becomes `$e->call('FUNC', Expression::fromColumn(X))`,
+  and `->value(V)` becomes `$e->call('FUNC', V)`. The INET functions become `inet6Ntoa()`,
+  `inetNtoa()`, `inet6Aton()` or `inetAton()`.
+
+```php
+// rector.php in the application
+use Rector\Config\RectorConfig;
+
+return RectorConfig::configure()
+    ->withPaths([__DIR__ . '/app'])
+    ->withSets([__DIR__ . '/vendor/noirapi/database/rector/set.php']);
+```
+
+```sh
+composer require --dev rector/rector
+vendor/bin/rector process --dry-run      # review the diff, then run without --dry-run
+```
+
+Rector reprints each changed chain on one line; run the project's code formatter afterwards.
+Indirect patterns (a helper that returns a mask closure), raw SQL strings (`DATE_SUB(NOW(), ...)`)
+and loops of `insert()` still need manual edits.
+
 ## Multi-row inserts and upserts
 
 `insert()` keeps its single-row signature. Loops of single inserts can move to `insertMany()`:

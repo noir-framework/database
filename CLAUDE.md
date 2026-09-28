@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Supported dialects are MySQL, PostgreSQL, SQLite and SQL Server. Oracle, Firebird, DB2 and NuoDB were removed deliberately; `Connection` throws for those drivers. The apps use MariaDB (`mysql:` DSNs), SQL Server through `dblib`, and SQLite in tests; none use PostgreSQL.
 
+The Rector rules for migrating apps are in `rector/src` (namespace `Noirapi\Database\Rector`, autoloaded for apps, analysed by every gate), with the set in `rector/set.php` and fixtures in `tests/Rector/Fixture/*.php.inc` (input, `-----`, expected output). `rector/rector` is a dev dependency.
+
 User documentation lives in `docs/` (see `docs/README.md`). It was rewritten from the opis 4.x docs, whose source repo has no license, so it must stay our own wording rather than copied text.
 
 ## Commands

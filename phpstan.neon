@@ -5,6 +5,7 @@ parameters:
     level: 10
     paths:
         - src
+        - rector/src
         - tests/Types
         - compat
     tmpDir: .cache/phpstan

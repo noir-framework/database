@@ -41,6 +41,7 @@
         "phpstan/phpstan": "^2.1",
         "phpstan/phpstan-strict-rules": "^2.0",
         "phpunit/phpunit": "^12.0",
+        "rector/rector": "^2.2",
         "slevomat/coding-standard": "^8.22",
         "squizlabs/php_codesniffer": "^4.0",
         "symfony/yaml": "^7.0",
@@ -51,7 +52,8 @@
     },
     "autoload": {
         "psr-4": {
-            "Noirapi\\Database\\": "src/"
+            "Noirapi\\Database\\": "src/",
+            "Noirapi\\Database\\Rector\\": "rector/src/"
         },
         "files": [
             "opis-aliases.php"
@@ -71,7 +73,7 @@
         "psalm": "psalm --no-cache",
         "cs": "phpcs",
         "cs-fix": "phpcbf",
-        "phpmd": "phpmd analyze src --format text --ruleset phpmd.xml --no-progress",
+        "phpmd": "phpmd analyze src rector/src --format text --ruleset phpmd.xml --no-progress",
         "check": [
             "@cs",
             "@phpstan",
@@ -90,5 +92,8 @@
         "branch-alias": {
             "dev-5.x": "5.0.x-dev"
         }
+    },
+    "suggest": {
+        "rector/rector": "Run rector/set.php to move applications to the 5.0 helpers (bit masks, INET, call())"
     }
 }

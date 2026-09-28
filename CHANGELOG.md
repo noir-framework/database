@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Rector set `rector/set.php` (`BitMaskWhereRector`, `RawFunctionCallRector`) that rewrites
+  hand-built bit mask conditions and `op('FUNC(')...op(')')` calls to the 5.0 helpers
 - `transaction($callback, $default, attempts: 3)` runs the transaction again after a deadlock or
   lock wait timeout (SQLSTATE 40001 / 40P01, MySQL 1213 / 1205, SQL Server 1205);
   `Connection::isRetryable()`
