@@ -10,7 +10,7 @@ namespace moved. Most applications need no code changes to keep running.
     { "type": "git", "url": "git@github.com:noir-framework/database.git" }
 ],
 "require": {
-    "noirapi/database": "^5.0@beta"
+    "noirapi/database": "^5.0"
 }
 ```
 

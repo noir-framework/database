@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## v5.0.0 - 2026-09-28
+
+First stable release; no code changes since v5.0.0-beta4. Require `"noirapi/database": "^5.0"`
+(the `@beta` stability flag is no longer needed).
+
 ## v5.0.0-beta4 - 2026-09-28
 
 ### Added
