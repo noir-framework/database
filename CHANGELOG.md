@@ -26,6 +26,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - `inet6Aton()`, `inet6Ntoa()`, `inetAton()`, `inetNtoa()` on `Expression` (MySQL/MariaDB; other
   drivers throw `LogicException`)
 - SQL compilers for PostgreSQL and SQLite (`SQL\Compiler\PostgreSQL`, `SQL\Compiler\SQLite`)
+- Bit-field helpers: `where('flags')->hasAllBits($mask)`, `hasAnyBits()`, `hasNoBits()`;
+  `Update::setBits()` / `clearBits()` and `Expression::bits($col, set:, clear:)` for `set()`.
+  Correct for bit 63 (`PHP_INT_MIN`) on signed and UNSIGNED BIGINT; on MySQL a signed column
+  holding bit 63 needs `signed: true` (casts the unsigned bit-op result back)
 - `ResultSet::lazy()` (from opis/database PR #103) yields rows one at a time, and `ResultSet` is
   iterable (`foreach ($query->select() as $row)`); both keep the `fetchClass()` row type
 - `stream()` on queries and `Connection::stream()`: unbuffered MySQL/MariaDB results for huge

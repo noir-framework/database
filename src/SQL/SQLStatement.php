@@ -23,6 +23,7 @@ namespace Noirapi\Database\SQL;
 
 use Closure;
 use InvalidArgumentException;
+use Noirapi\Database\SQL\Clause\BitTest;
 use Noirapi\Database\SQL\Clause\Condition;
 use Noirapi\Database\SQL\Clause\HavingBetween;
 use Noirapi\Database\SQL\Clause\HavingCondition;
@@ -35,6 +36,7 @@ use Noirapi\Database\SQL\Clause\SelectColumn;
 use Noirapi\Database\SQL\Clause\UpdateColumn;
 use Noirapi\Database\SQL\Clause\UpsertClause;
 use Noirapi\Database\SQL\Clause\WhereBetween;
+use Noirapi\Database\SQL\Clause\WhereBits;
 use Noirapi\Database\SQL\Clause\WhereColumn;
 use Noirapi\Database\SQL\Clause\WhereExists;
 use Noirapi\Database\SQL\Clause\WhereIn;
@@ -193,6 +195,18 @@ class SQLStatement
     public function addWhereNullCondition(string|Expression|Closure $column, string $separator, bool $not): void
     {
         $this->wheres[] = new WhereNull($this->toExpression($column), $not, $separator);
+    }
+
+    /**
+     * @param ColumnArg $column
+     */
+    public function addWhereBitsCondition(
+        string|Expression|Closure $column,
+        int $mask,
+        BitTest $test,
+        string $separator,
+    ): void {
+        $this->wheres[] = new WhereBits($this->toExpression($column), $mask, $test, $separator);
     }
 
     /**

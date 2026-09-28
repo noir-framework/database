@@ -52,6 +52,8 @@ function check(Database $db): void
     assertType('Noirapi\Database\SQL\Where<' . Update::class . '>', $db->update('users')->where('id'));
     assertType('int', $db->update('users')->where('id')->is(1)->set(['a' => 1]));
     assertType('int', $db->update('users')->where('id')->is(1)->increment('hits'));
+    assertType('int', $db->update('users')->where('flags')->hasAnyBits(4)->setBits('flags', 8));
+    assertType(Query::class, $db->from('users')->where('flags')->hasAllBits(PHP_INT_MIN)->andWhere('f')->hasNoBits(1));
     assertType('int', $db->from('users')->where('id')->is(1)->delete());
     assertType('bool', $db->insert(['a' => 1])->into('users'));
     assertType(Insert::class, $db->insertMany([['a' => 1], ['a' => 2]]));

@@ -26,6 +26,8 @@ use DateTimeInterface;
 use InvalidArgumentException;
 use LogicException;
 use Noirapi\Database\SQL\Clause\AggregateFunction;
+use Noirapi\Database\SQL\Clause\BitsPart;
+use Noirapi\Database\SQL\Clause\BitTest;
 use Noirapi\Database\SQL\Clause\CallPart;
 use Noirapi\Database\SQL\Clause\ColumnPart;
 use Noirapi\Database\SQL\Clause\Condition;
@@ -51,6 +53,7 @@ use Noirapi\Database\SQL\Clause\UpdateColumn;
 use Noirapi\Database\SQL\Clause\UpsertClause;
 use Noirapi\Database\SQL\Clause\ValuePart;
 use Noirapi\Database\SQL\Clause\WhereBetween;
+use Noirapi\Database\SQL\Clause\WhereBits;
 use Noirapi\Database\SQL\Clause\WhereColumn;
 use Noirapi\Database\SQL\Clause\WhereExists;
 use Noirapi\Database\SQL\Clause\WhereIn;
@@ -294,6 +297,7 @@ class Compiler
                 $expr instanceof SqlFunction => $this->handleSqlFunction($expr),
                 $expr instanceof CallPart => $this->handleCall($expr),
                 $expr instanceof DateArithmetic => $this->handleDateArithmetic($expr),
+                $expr instanceof BitsPart => $this->handleBits($expr),
                 default => throw new LogicException('Unsupported expression part: ' . get_debug_type($expr)),
             };
         }
@@ -328,6 +332,19 @@ class Compiler
             FunctionName::Inet6Aton, FunctionName::Inet6Ntoa, FunctionName::InetAton, FunctionName::InetNtoa
                 => $this->sqlFunctionINET($func),
         };
+    }
+
+    /**
+     * `(col & ~clear) | set`, leaving out the parts that are 0.
+     */
+    protected function handleBits(BitsPart $bits): string
+    {
+        $sql = $this->wrap($bits->column);
+        if ($bits->clear !== 0) {
+            $sql = '(' . $sql . ' & ~' . $this->param($bits->clear) . ')';
+        }
+
+        return $bits->set === 0 ? $sql : $sql . ' | ' . $this->param($bits->set);
     }
 
     /**
@@ -599,6 +616,7 @@ class Compiler
             $condition instanceof WhereBetween => $this->whereBetween($condition),
             $condition instanceof WhereLike => $this->whereLike($condition),
             $condition instanceof WhereNop => $this->whereNop($condition),
+            $condition instanceof WhereBits => $this->whereBits($condition),
             $condition instanceof HavingCondition => $this->havingCondition($condition),
             $condition instanceof HavingNested => $this->havingNested($condition),
             $condition instanceof HavingBetween => $this->havingBetween($condition),
@@ -669,6 +687,17 @@ class Compiler
     {
         return $this->wrap($where->column) . ' ' . ($where->not ? 'NOT LIKE' : 'LIKE') . ' '
             . $this->param($where->pattern);
+    }
+
+    protected function whereBits(WhereBits $where): string
+    {
+        $column = $this->wrap($where->column);
+
+        return match ($where->test) {
+            BitTest::All => '(~' . $column . ' & ' . $this->param($where->mask) . ') = 0',
+            BitTest::Any => '(' . $column . ' & ' . $this->param($where->mask) . ') != 0',
+            BitTest::None => '(' . $column . ' & ' . $this->param($where->mask) . ') = 0',
+        };
     }
 
     protected function whereNop(WhereNop $where): string

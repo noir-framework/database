@@ -23,7 +23,7 @@ use PHPUnit\Framework\TestCase;
 #[RequiresPhpExtension('pdo_mysql')]
 final class MySqlTest extends TestCase
 {
-    private const array TABLES = ['t_stats', 't_users', 't_files'];
+    private const array TABLES = ['t_stats', 't_users', 't_files', 't_bits'];
 
     private Database $db;
 
@@ -220,6 +220,36 @@ final class MySqlTest extends TestCase
                 ->gt(static fn (Expression $e) => $e->fromNow(15, Interval::Day))
                 ->count(),
         );
+    }
+
+    public function testBitsWithBit63OnSignedAndUnsigned(): void
+    {
+        $this->db->getConnection()->command(
+            'CREATE TABLE t_bits (id INT PRIMARY KEY, s BIGINT NOT NULL DEFAULT 0, u BIGINT UNSIGNED NOT NULL DEFAULT 0)',
+        );
+        $this->db->insert(['id' => 1])->into('t_bits');
+
+        $top = PHP_INT_MIN; // bit 63
+        $this->assertSame(1, $this->db->update('t_bits')->setBits('u', $top | 5));
+        $this->assertSame(1, $this->db->update('t_bits')->setBits('s', $top | 5, signed: true));
+        $this->assertSame(1, $this->db->update('t_bits')->set([
+            's' => static fn (Expression $e) => $e->bits('s', set: 8, clear: 1, signed: true),
+            'u' => static fn (Expression $e) => $e->bits('u', set: 8, clear: 1),
+        ]));
+
+        $row = $this->db->from('t_bits')->select(['s', 'u'])->fetchAssoc()->first();
+        $this->assertSame(['s' => $top | 12, 'u' => '9223372036854775820'], $row);
+
+        foreach (['s', 'u'] as $column) {
+            $count = fn (string $test, int $mask): int => $this->db->from('t_bits')->where($column)->{$test}($mask)->count();
+            $this->assertSame([1, 1, 0, 0], [$count('hasAllBits', $top | 12), $count('hasAllBits', $top), $count('hasAllBits', $top | 1), $count('hasAllBits', 2)], $column);
+            $this->assertSame([1, 1, 0], [$count('hasAnyBits', $top), $count('hasAnyBits', 3 | 4), $count('hasAnyBits', 3)], $column);
+            $this->assertSame([1, 0, 0], [$count('hasNoBits', 3), $count('hasNoBits', $top), $count('hasNoBits', 4)], $column);
+        }
+
+        $this->db->update('t_bits')->clearBits('s', $top, signed: true);
+        $this->db->update('t_bits')->clearBits('u', $top);
+        $this->assertSame([12, 12], $this->db->from('t_bits')->select(['s', 'u'])->fetchNum()->first());
     }
 
     private function dropAll(): void

@@ -26,6 +26,7 @@ use InvalidArgumentException;
 use LogicException;
 use Noirapi\Database\SQL\Clause\AggregateFunction;
 use Noirapi\Database\SQL\Clause\AggregateName;
+use Noirapi\Database\SQL\Clause\BitsPart;
 use Noirapi\Database\SQL\Clause\CallPart;
 use Noirapi\Database\SQL\Clause\ColumnPart;
 use Noirapi\Database\SQL\Clause\DateArithmetic;
@@ -274,6 +275,21 @@ class Expression
     public function fromNow(int|self|Closure $amount, Interval $unit): static
     {
         return $this->dateAdd((new self())->now(), $amount, $unit);
+    }
+
+    /**
+     * Sets and/or clears bits of an integer column, for `set()`:
+     * `$update->set(['flags' => fn ($e) => $e->bits('flags', set: A, clear: B)])` gives
+     * `("flags" & ~B) | A`. Bit 63 is PHP_INT_MIN.
+     *
+     * MySQL's bit operators return unsigned 64-bit values: for a signed BIGINT column holding
+     * bit 63 (a negative number) pass `signed: true`, or the update fails with "out of range".
+     *
+     * @param ColumnArg $column
+     */
+    public function bits(string|self|Closure $column, int $set = 0, int $clear = 0, bool $signed = false): static
+    {
+        return $this->addExpression(new BitsPart(self::normalize($column), $set, $clear, $signed));
     }
 
     /**

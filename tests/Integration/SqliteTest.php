@@ -312,4 +312,23 @@ final class SqliteTest extends TestCase
             substr((string) $row[3], 0, 10),
         );
     }
+
+    public function testBitsWithBit63(): void
+    {
+        $this->db->getConnection()->command('CREATE TABLE bits (id INTEGER PRIMARY KEY, f INTEGER NOT NULL DEFAULT 0)');
+        $this->db->insert(['id' => 1])->into('bits');
+
+        $top = PHP_INT_MIN;
+        $this->db->update('bits')->setBits('f', $top | 5);
+        $this->db->update('bits')->set(['f' => static fn (Expression $e) => $e->bits('f', set: 8, clear: 1)]);
+        $this->assertSame($top | 12, $this->db->from('bits')->column('f'));
+
+        $this->assertSame(1, $this->db->from('bits')->where('f')->hasAllBits($top | 12)->count());
+        $this->assertSame(0, $this->db->from('bits')->where('f')->hasAllBits($top | 1)->count());
+        $this->assertSame(1, $this->db->from('bits')->where('f')->hasAnyBits($top)->count());
+        $this->assertSame(1, $this->db->from('bits')->where('f')->hasNoBits(3)->count());
+
+        $this->db->update('bits')->clearBits('f', $top);
+        $this->assertSame(12, $this->db->from('bits')->column('f'));
+    }
 }

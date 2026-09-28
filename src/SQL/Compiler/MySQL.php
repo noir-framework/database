@@ -21,6 +21,7 @@ declare(strict_types=1);
 
 namespace Noirapi\Database\SQL\Compiler;
 
+use Noirapi\Database\SQL\Clause\BitsPart;
 use Noirapi\Database\SQL\Clause\SqlFunction;
 use Noirapi\Database\SQL\Clause\UpsertClause;
 use Noirapi\Database\SQL\Compiler;
@@ -46,6 +47,17 @@ class MySQL extends Compiler
     protected function sqlFunctionLEN(SqlFunction $func): string
     {
         return 'LENGTH(' . $this->wrap($func->column) . ')';
+    }
+
+    /**
+     * Bit operators yield unsigned 64-bit values; a signed BIGINT needs the result cast back.
+     */
+    #[Override]
+    protected function handleBits(BitsPart $bits): string
+    {
+        $sql = parent::handleBits($bits);
+
+        return $bits->signed ? 'CAST(' . $sql . ' AS SIGNED)' : $sql;
     }
 
     /**

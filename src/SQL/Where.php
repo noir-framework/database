@@ -22,6 +22,7 @@ declare(strict_types=1);
 namespace Noirapi\Database\SQL;
 
 use Closure;
+use Noirapi\Database\SQL\Clause\BitTest;
 
 use function is_string;
 
@@ -203,6 +204,38 @@ class Where
     }
 
     /**
+     * Every bit of the mask is set: `(~col & mask) = 0`. The complement form stays correct
+     * for bit 63 on MySQL, whose bit operators return unsigned 64-bit values; pass bit 63 as
+     * PHP_INT_MIN (PHP ints are signed).
+     *
+     * @return TStatement
+     */
+    public function hasAllBits(int $mask): WhereStatement
+    {
+        return $this->addBitsCondition($mask, BitTest::All);
+    }
+
+    /**
+     * At least one bit of the mask is set: `(col & mask) != 0`.
+     *
+     * @return TStatement
+     */
+    public function hasAnyBits(int $mask): WhereStatement
+    {
+        return $this->addBitsCondition($mask, BitTest::Any);
+    }
+
+    /**
+     * No bit of the mask is set: `(col & mask) = 0`.
+     *
+     * @return TStatement
+     */
+    public function hasNoBits(int $mask): WhereStatement
+    {
+        return $this->addBitsCondition($mask, BitTest::None);
+    }
+
+    /**
      * Alias of notNull().
      *
      * @return TStatement
@@ -314,6 +347,16 @@ class Where
     protected function addInCondition(array|Closure $value, bool $not): WhereStatement
     {
         $this->sql->addWhereInCondition($this->column, $value, $this->separator, $not);
+
+        return $this->statement;
+    }
+
+    /**
+     * @return TStatement
+     */
+    protected function addBitsCondition(int $mask, BitTest $test): WhereStatement
+    {
+        $this->sql->addWhereBitsCondition($this->column, $mask, $test, $this->separator);
 
         return $this->statement;
     }

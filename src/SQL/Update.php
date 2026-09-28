@@ -59,6 +59,22 @@ class Update extends UpdateStatement
     }
 
     /**
+     * `SET col = col | mask` and runs the update. See Expression::bits() for `$signed`.
+     */
+    public function setBits(string $column, int $mask, bool $signed = false): int
+    {
+        return $this->set([$column => (new Expression())->bits($column, set: $mask, signed: $signed)]);
+    }
+
+    /**
+     * `SET col = col & ~mask` and runs the update. See Expression::bits() for `$signed`.
+     */
+    public function clearBits(string $column, int $mask, bool $signed = false): int
+    {
+        return $this->set([$column => (new Expression())->bits($column, clear: $mask, signed: $signed)]);
+    }
+
+    /**
      * Runs the update and returns the affected row count.
      *
      * @param array<string, mixed> $columns column => value (closures build expressions)
